@@ -35,4 +35,6 @@ class HoaDon(BaseModel):
     tinh_trang = Column(String, nullable=True)
     lenh_treo = Column(String, nullable=True)
     ly_do = Column(String, nullable=True) 
+    dia_chi =  Column(String, nullable = True)
+    stk_khach = Column(String, nullable = True)
 

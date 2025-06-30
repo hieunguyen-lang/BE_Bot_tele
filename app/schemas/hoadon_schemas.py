@@ -30,6 +30,8 @@ class HoaDonBase(BaseSchema):
     tinh_trang: Optional[str] = None
     lenh_treo: Optional[str] = None
     ly_do: Optional[str] = None
+    dia_chi: Optional[str] = None
+    stk_khach: Optional[str] =  None
 
 class HoaDonCreate(HoaDonBase):
     pass
