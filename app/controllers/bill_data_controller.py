@@ -12,7 +12,7 @@ router = APIRouter()
 @router.get("/")
 async def get_hoa_don_grouped(
     page: int = Query(1, ge=1),
-    page_size: int = Query(10, ge=1),
+    page_size: int = Query(200, ge=1),
     so_hoa_don: str = Query(None),
     so_lo: str = Query(None),
     tid: str = Query(None),

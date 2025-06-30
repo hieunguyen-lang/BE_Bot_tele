@@ -15,6 +15,7 @@ from ..auth import verify_password, get_password_hash
 from fastapi import HTTPException, status
 from collections import defaultdict
 from typing import List, Dict
+from sqlalchemy import asc ,desc
 
 
 async def get_hoa_don_grouped(page, page_size, db, filters=None):
@@ -41,32 +42,43 @@ async def get_hoa_don_grouped(page, page_size, db, filters=None):
             base_query = base_query.where(hoa_don_models.HoaDon.ngay_giao_dich == filters["ngay_giao_dich"])
 
     # 1. Lấy danh sách batch_id (phân trang) với filter
-    stmt_batch_ids = (
-        base_query.with_only_columns(hoa_don_models.HoaDon.batch_id)
-        .distinct()
-        .order_by(hoa_don_models.HoaDon.batch_id)
+    sub = (
+        select(
+            hoa_don_models.HoaDon.batch_id,
+            func.min(hoa_don_models.HoaDon.thoi_gian).label("min_time")
+        )
+        .where(*base_query._where_criteria)  # sử dụng filter có sẵn
+        .group_by(hoa_don_models.HoaDon.batch_id)
+        .order_by(desc("min_time"))
         .offset((page - 1) * page_size)
         .limit(page_size)
+        .subquery()
     )
+
+    # 2. Lấy batch_id từ subquery
+    stmt_batch_ids = select(sub.c.batch_id)
     result = await db.execute(stmt_batch_ids)
     batch_ids = [row[0] for row in result.fetchall()]
 
-    if not batch_ids:
-        return {"total": 0, "data": []}
-
-    # 2. Lấy tổng số batch_id (dùng cho total) với filter
-    stmt_count = select(func.count()).select_from(
-        base_query.with_only_columns(hoa_don_models.HoaDon.batch_id).distinct().subquery()
+    # 3. Tổng số batch_id (không cần offset/limit)
+    stmt_total = (
+        select(func.count())
+        .select_from(
+            select(hoa_don_models.HoaDon.batch_id)
+            .where(*base_query._where_criteria)
+            .distinct()
+            .subquery()
+        )
     )
-    total_result = await db.execute(stmt_count)
+    total_result = await db.execute(stmt_total)
     total = total_result.scalar()
 
-    # 3. Lấy toàn bộ record theo batch_id với filter
+    # 4. Lấy record theo batch_id
     stmt_records = base_query.where(hoa_don_models.HoaDon.batch_id.in_(batch_ids))
     result = await db.execute(stmt_records)
     records = result.scalars().all()
 
-    # 4. Nhóm theo batch_id
+    # 5. Nhóm lại
     grouped = defaultdict(list)
     for r in records:
         grouped[r.batch_id].append(HoaDonOut.from_orm(r))
