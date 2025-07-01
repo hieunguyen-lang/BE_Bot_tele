@@ -33,7 +33,9 @@ async def login_for_access_token(
         value=access_token,
         httponly=True,
         samesite="lax",
-        path="/"
+        path="/",
+        max_age=3600,  # optional: thời gian sống cookie
+        secure=False   # hoặc True nếu dùng HTTPS
     )
 
     return response
