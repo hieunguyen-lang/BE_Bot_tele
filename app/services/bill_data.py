@@ -18,7 +18,12 @@ from typing import List, Dict
 from sqlalchemy import asc ,desc
 
 
-async def get_hoa_don_grouped(page, page_size, db, filters=None):
+async def get_hoa_don_grouped(page, page_size, db, filters=None,current_user=User):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action."
+        )
     # Tạo base query với filters
     base_query = select(hoa_don_models.HoaDon)
     
@@ -90,7 +95,12 @@ async def get_hoa_don_grouped(page, page_size, db, filters=None):
 
     return {"total": total, "data": data}
 
-async def create_hoa_don(db, hoa_don):
+async def create_hoa_don(db, hoa_don,current_user=User):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action."
+        )
     db_hoa_don = HoaDon(**hoa_don.dict())
     db.add(db_hoa_don)
     db.commit()
@@ -100,8 +110,14 @@ async def create_hoa_don(db, hoa_don):
 async def update_hoa_don(
     hoa_don_id, 
     hoa_don,
-    db
+    db,
+    current_user
 ):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action."
+        )
     # Lấy hóa đơn
     stmt = select(HoaDon).where(HoaDon.id == hoa_don_id)
     result = await db.execute(stmt)
@@ -122,8 +138,14 @@ async def update_hoa_don(
 
 async def delete_hoa_don(
     hoa_don_id: int, 
-    db
+    db,
+    current_user
 ):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action."
+        )
     # Lấy hóa đơn
     stmt = select(HoaDon).where(HoaDon.id == hoa_don_id)
     result = await db.execute(stmt)

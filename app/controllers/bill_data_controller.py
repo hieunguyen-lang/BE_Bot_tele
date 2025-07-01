@@ -22,6 +22,7 @@ async def get_hoa_don_grouped(
     so_dien_thoai: str = Query(None),
     ngay_giao_dich: str = Query(None),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
     
     filters = {
@@ -39,34 +40,44 @@ async def get_hoa_don_grouped(
         db=db, 
         page=page, 
         page_size=page_size, 
-        filters=filters
+        filters=filters,
+        current_user=current_user
     )
 
 @router.post("/api/hoa-don", response_model=HoaDonOut)
-async def create_hoa_don(hoa_don: HoaDonCreate, db: AsyncSession = Depends(get_db)):
+async def create_hoa_don(
+    hoa_don: HoaDonCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+    ):
     return await bill_data.create_hoa_don(
         db=db, 
-        hoa_don=hoa_don
+        hoa_don=hoa_don,
+        current_user=current_user
     )
 
 @router.put("/{hoa_don_id}", response_model=HoaDonOut)
 async def update_hoa_don(
     hoa_don_id: int, 
     hoa_don: HoaDonUpdate, 
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
     return await bill_data.update_hoa_don(
             hoa_don_id, 
             hoa_don,
-            db
+            db,
+            current_user=current_user
         )
 
 @router.delete("/{hoa_don_id}")
 async def delete_hoa_don(
     hoa_don_id: int, 
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
     return await bill_data.delete_hoa_don(
             hoa_don_id, 
-            db
+            db,
+            current_user=current_user
     )
