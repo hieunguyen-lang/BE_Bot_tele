@@ -13,10 +13,13 @@ from ..schemas.hoadon_schemas import HoaDonOut,HoaDonUpdate,HoaDonCreate
 from ..models import User, UserRole, hoa_don_models
 from ..auth import verify_password, get_password_hash
 from fastapi import HTTPException, status
+from fastapi.responses import StreamingResponse
 from collections import defaultdict
 from typing import List, Dict
 from sqlalchemy import asc ,desc
-
+from io import BytesIO
+from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
 async def get_hoa_don_stats(db, current_user=User):
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -188,3 +191,74 @@ async def delete_hoa_don(
     await db.commit()
     
     return {"ok": True}
+
+async def export_hoa_don_excel(
+   page, page_size, db, filters=None,current_user=User     
+):
+    data = await get_hoa_don_grouped(page, page_size, db, filters,current_user)
+    all_rows = []
+    for group in data["data"]:
+        records = group["records"]
+        # 👉 Merge KẾT TOÁN từ tổng các tong_so_tien
+        tong_cong = sum(int(r.tong_so_tien or 0) for r in records)
+        for r in records:
+            row = {
+                "ngay": r.ngay_giao_dich,
+                "nguoi_gui": r.nguoi_gui,
+                "ten_khach": r.ten_khach,
+                "sdt_khach": r.so_dien_thoai,
+                "loai": r.type_dao_rut,
+                "so_tien": r.tong_so_tien,
+                "ket_toan": tong_cong,
+                "so_the": r.so_the,
+                "tid": r.tid,
+                "so_lo": r.so_lo,
+                "so_hoa_don": r.so_hoa_don,
+                "gio": r.gio_giao_dich,
+                "ten_pos": r.ten_may_pos,
+                "phi_pos": r.phi_pos,
+                "phi_dv": r.tien_phi,
+                "phi_thu_khach": r.phi_thu_khach,
+                "ck_khach_rut": r.ck_khach_rut,
+                "tien_ve_tk": r.tien_ve_tk_cty,
+                "tinh_trang": r.tinh_trang,
+                "lenh_treo": r.lenh_treo,
+                "ly_do": r.ly_do
+            }
+            all_rows.append(row)
+
+    # ✅ Tạo Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Hóa đơn"
+
+    headers = [
+        "STT", "NGÀY", "NGƯỜI GỬI", "HỌ VÀ TÊN KHÁCH", "SĐT KHÁCH", "ĐÁO / RÚT", "SỐ TIỀN", "KẾT TOÁN",
+        "SỐ THẺ", "TID", "SỐ LÔ", "SỐ HÓA ĐƠN", "GIỜ GIAO DỊCH", "TÊN POS", "PHÍ POS", "PHÍ DV",
+        "PHÍ THU KHÁCH", "CK KHÁCH RÚT", "TIỀN VỀ TK CTY", "TÌNH TRẠNG", "LỆNH TREO", "LÝ DO"
+    ]
+    ws.append(headers)
+
+    for idx, r in enumerate(all_rows, 1):
+        ws.append([
+            idx,
+            r["ngay"], r["nguoi_gui"], r["ten_khach"], r["sdt_khach"], r["loai"],
+            r["so_tien"], r["ket_toan"], r["so_the"], r["tid"], r["so_lo"], r["so_hoa_don"],
+            r["gio"], r["ten_pos"], r["phi_pos"], r["phi_dv"], r["phi_thu_khach"],
+            r["ck_khach_rut"], r["tien_ve_tk"], r["tinh_trang"], r["lenh_treo"], r["ly_do"]
+        ])
+
+    # Co giãn cột
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or "")) for cell in col)
+        ws.column_dimensions[get_column_letter(col[0].column)].width = max_len + 2
+
+    file_stream = BytesIO()
+    wb.save(file_stream)
+    file_stream.seek(0)
+
+    return StreamingResponse(
+        file_stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=hoa_don.xlsx"}
+    )
