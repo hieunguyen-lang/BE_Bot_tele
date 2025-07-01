@@ -17,6 +17,35 @@ from collections import defaultdict
 from typing import List, Dict
 from sqlalchemy import asc ,desc
 
+async def get_hoa_don_stats(db, current_user=User):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action."
+        )
+    
+    # Chỉ select các trường cần thiết cho thống kê
+    stmt = select(
+        hoa_don_models.HoaDon.batch_id,
+        hoa_don_models.HoaDon.tong_so_tien,
+        hoa_don_models.HoaDon.tien_phi
+    )
+    
+    result = await db.execute(stmt)
+    records = result.fetchall()
+    
+    # Tính toán thống kê
+    total_records = len(records)
+    total_batches = len(set(r[0] for r in records if r[0]))  # batch_id
+    total_amount = sum(int(r[1]) for r in records if r[1] and r[1].isdigit())  # tong_so_tien
+    total_fee = sum(int(r[2]) for r in records if r[2] and r[2].isdigit())  # tien_phi
+    
+    return {
+        "totalRecords": total_records,
+        "totalBatches": total_batches,
+        "totalAmount": total_amount,
+        "totalFee": total_fee
+    }
 
 async def get_hoa_don_grouped(page, page_size, db, filters=None,current_user=User):
     if current_user.role != UserRole.ADMIN:

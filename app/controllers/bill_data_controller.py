@@ -9,6 +9,10 @@ from ..services import bill_data
 from typing import Any
 router = APIRouter()
 
+@router.get("/stats")
+async def get_stats(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+    return await bill_data.get_hoa_don_stats(db, current_user)
+
 @router.get("/")
 async def get_hoa_don_grouped(
     page: int = Query(1, ge=1),
