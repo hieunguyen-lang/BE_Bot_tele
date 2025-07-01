@@ -4,13 +4,13 @@ from .database import engine
 from .models import Base
 from .controllers import auth_controller, bill_data_controller, user_controller
 import asyncio
-
+from app.scheduler import reset_khach_moi
 app = FastAPI(title="FastAPI Project")
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://45.32.104.37:3000"],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,3 +28,7 @@ async def startup():
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to FastAPI Project"} 
+
+@app.on_event("startup")
+async def startup():
+    asyncio.create_task(reset_khach_moi())

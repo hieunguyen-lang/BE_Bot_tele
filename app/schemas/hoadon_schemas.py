@@ -32,6 +32,7 @@ class HoaDonBase(BaseSchema):
     ly_do: Optional[str] = None
     dia_chi: Optional[str] = None
     stk_khach: Optional[str] =  None
+    khach_moi: Optional[bool] =  None
 
 class HoaDonCreate(HoaDonBase):
     pass

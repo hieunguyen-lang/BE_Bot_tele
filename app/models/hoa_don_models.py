@@ -37,4 +37,5 @@ class HoaDon(BaseModel):
     ly_do = Column(String, nullable=True) 
     dia_chi =  Column(String, nullable = True)
     stk_khach = Column(String, nullable = True)
+    khach_moi = Column(Boolean, default = False)
 
