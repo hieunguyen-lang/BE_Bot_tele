@@ -19,8 +19,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_controller.router, tags=["authentication"])
-app.include_router(user_controller.router, prefix="/api/user", tags=["users"])
-app.include_router(bill_data_controller.router, prefix="/api/hoa-don", tags=["hoadon"])
+app.include_router(user_controller.router, prefix="/user", tags=["users"])
+app.include_router(bill_data_controller.router, prefix="/hoa-don", tags=["hoadon"])
 @app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
