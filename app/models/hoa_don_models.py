@@ -33,9 +33,9 @@ class HoaDon(BaseModel):
     ck_khach_rut = Column(String, nullable=True)
     tien_ve_tk_cty = Column(String, nullable=True)
     tinh_trang = Column(String, nullable=True)
-    lenh_treo = Column(String, nullable=True)
     ly_do = Column(String, nullable=True) 
     dia_chi =  Column(String, nullable = True)
     stk_khach = Column(String, nullable = True)
     khach_moi = Column(Boolean, default = False)
+    phan_tram_phi = Column(String, nullable = True)
 

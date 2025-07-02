@@ -28,11 +28,11 @@ class HoaDonBase(BaseSchema):
     ck_khach_rut: Optional[str] = None
     tien_ve_tk_cty: Optional[str] = None
     tinh_trang: Optional[str] = None
-    lenh_treo: Optional[str] = None
     ly_do: Optional[str] = None
     dia_chi: Optional[str] = None
     stk_khach: Optional[str] =  None
     khach_moi: Optional[bool] =  None
+    phan_tram_phi: Optional[str] =  None
 
 class HoaDonCreate(HoaDonBase):
     pass
