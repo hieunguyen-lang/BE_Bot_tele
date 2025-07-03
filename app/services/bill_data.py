@@ -120,7 +120,13 @@ async def get_hoa_don_grouped(page, page_size, db, filters=None,current_user=Use
     # 5. Nhóm lại
     grouped = defaultdict(list)
     for r in records:
-        grouped[r.batch_id].append(HoaDonOut.from_orm(r))
+        masked_so_the = None
+        if r.so_the and len(r.so_the) >= 4:
+            masked_so_the = "*" * (len(r.so_the) - 4) + r.so_the[-4:]
+
+        hoa_don_dict = r.__dict__.copy()
+        hoa_don_dict["so_the"] = masked_so_the
+        grouped[r.batch_id].append(HoaDonOut(**hoa_don_dict))
 
     data = [
         {"batch_id": batch_id, "records": grouped[batch_id]}

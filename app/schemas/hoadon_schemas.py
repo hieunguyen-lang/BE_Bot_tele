@@ -23,17 +23,17 @@ class HoaDonBase(BaseSchema):
     batch_id: Optional[str] = None
     caption_goc: Optional[str] = None
     ket_toan: Optional[str] = None
-    phi_pos: Optional[str] = None
-    phi_thu_khach: Optional[str] = None
-    ck_khach_rut: Optional[str] = None
-    tien_ve_tk_cty: Optional[str] = None
+    ck_vao: Optional[str] = None
+    ck_ra: Optional[str] = None
     tinh_trang: Optional[str] = None
     ly_do: Optional[str] = None
     dia_chi: Optional[str] = None
     stk_khach: Optional[str] =  None
+    stk_cty: Optional[str] =  None
     khach_moi: Optional[bool] =  None
     phan_tram_phi: Optional[str] =  None
 
+    
 class HoaDonCreate(HoaDonBase):
     pass
 
