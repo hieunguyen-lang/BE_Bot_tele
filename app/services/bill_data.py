@@ -41,8 +41,16 @@ async def get_hoa_don_stats(db, current_user=User):
     total_records = len(records)
     total_batches = len(set(r[0] for r in records if r[0]))  # batch_id
     total_amount = sum(int(r[1]) for r in records if r[1] and r[1].isdigit())  # tong_so_tien
-    total_fee = sum(int(r[2]) for r in records if r[2] and r[2].isdigit())  # tien_phi
-    
+    # ✅ Fix: chỉ tính tien_phi của mỗi batch 1 lần (batch đầu tiên)
+    seen_batches = set()
+    total_fee = 0
+    for r in records:
+        batch_id = r[0]
+        tien_phi = r[2]
+        if batch_id and batch_id not in seen_batches:
+            seen_batches.add(batch_id)
+            if tien_phi and tien_phi.isdigit():
+                total_fee += int(tien_phi)
     return {
         "totalRecords": total_records,
         "totalBatches": total_batches,
