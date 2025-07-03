@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine
 from .models import Base
-from .controllers import auth_controller, bill_data_controller, user_controller
+from .controllers import auth_controller, bill_data_controller, user_controller,report_controller
 import asyncio
 from app.scheduler import reset_khach_moi
 app = FastAPI(title="FastAPI Project")
@@ -23,6 +23,7 @@ app.add_middleware(
 app.include_router(auth_controller.router, tags=["authentication"])
 app.include_router(user_controller.router, prefix="/user", tags=["users"])
 app.include_router(bill_data_controller.router, prefix="/hoa-don", tags=["hoadon"])
+app.include_router(report_controller.router, prefix="/report", tags=["report"])
 @app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
