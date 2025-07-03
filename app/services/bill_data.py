@@ -224,7 +224,6 @@ async def export_hoa_don_excel(
                 "ck_khach_rut": r.ck_khach_rut,
                 "tien_ve_tk": r.tien_ve_tk_cty,
                 "tinh_trang": r.tinh_trang,
-                "lenh_treo": r.lenh_treo,
                 "ly_do": r.ly_do
             }
             all_rows.append(row)
@@ -237,7 +236,7 @@ async def export_hoa_don_excel(
     headers = [
         "STT", "NGÀY", "NGƯỜI GỬI", "HỌ VÀ TÊN KHÁCH", "SĐT KHÁCH", "ĐÁO / RÚT", "SỐ TIỀN", "KẾT TOÁN",
         "SỐ THẺ", "TID", "SỐ LÔ", "SỐ HÓA ĐƠN", "GIỜ GIAO DỊCH", "TÊN POS", "PHÍ POS", "PHÍ DV",
-        "PHÍ THU KHÁCH", "CK KHÁCH RÚT", "TIỀN VỀ TK CTY", "TÌNH TRẠNG", "LỆNH TREO", "LÝ DO"
+        "PHÍ THU KHÁCH", "CK KHÁCH RÚT", "TIỀN VỀ TK CTY", "TÌNH TRẠNG", "LÝ DO"
     ]
     ws.append(headers)
 
@@ -247,7 +246,7 @@ async def export_hoa_don_excel(
             r["ngay"], r["nguoi_gui"], r["ten_khach"], r["sdt_khach"], r["loai"],
             r["so_tien"], r["ket_toan"], r["so_the"], r["tid"], r["so_lo"], r["so_hoa_don"],
             r["gio"], r["ten_pos"], r["phi_pos"], r["phi_dv"], r["phi_thu_khach"],
-            r["ck_khach_rut"], r["tien_ve_tk"], r["tinh_trang"], r["lenh_treo"], r["ly_do"]
+            r["ck_khach_rut"], r["tien_ve_tk"], r["tinh_trang"], r["ly_do"]
         ])
 
     # Co giãn cột
