@@ -29,13 +29,13 @@ async def report_summary(type, from_, to, db, current_user=User):
     if type == 'hour':
         group_expr = func.substr(hoa_don_models.HoaDon.gio_giao_dich, 1, 2)
     elif type == 'day':
-        group_expr = cast(hoa_don_models.HoaDon.ngay_giao_dich, Date)
+        group_expr = cast(hoa_don_models.HoaDon.created_at, Date)
     elif type == 'week':
-        group_expr = func.strftime('%Y-%W', hoa_don_models.HoaDon.ngay_giao_dich)
+        group_expr = func.date_format(hoa_don_models.HoaDon.created_at, '%Y-%u')
     elif type == 'month':
-        group_expr = func.strftime('%Y-%m', hoa_don_models.HoaDon.ngay_giao_dich)
+        group_expr = func.date_format(hoa_don_models.HoaDon.created_at, '%Y-%m')
     elif type == 'year':
-        group_expr = func.strftime('%Y', hoa_don_models.HoaDon.ngay_giao_dich)
+        group_expr = func.date_format(hoa_don_models.HoaDon.created_at, '%Y')
     else:
         raise HTTPException(status_code=400, detail="Invalid type")
 
@@ -48,8 +48,8 @@ async def report_summary(type, from_, to, db, current_user=User):
             group_expr.label("period")
         )
         .where(
-            hoa_don_models.HoaDon.ngay_giao_dich >= from_,
-            hoa_don_models.HoaDon.ngay_giao_dich <= to
+            hoa_don_models.HoaDon.created_at >= from_,
+            hoa_don_models.HoaDon.created_at <= to
         )
         .order_by("period")
     )

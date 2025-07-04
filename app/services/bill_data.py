@@ -143,17 +143,114 @@ async def get_hoa_don_grouped(page, page_size, db, filters=None,current_user=Use
 
     return {"total": total, "data": data}
 
-async def create_hoa_don(db, hoa_don,current_user=User):
+async def create_hoa_don(db, hoa_don, current_user=User):
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to perform this action."
         )
-    db_hoa_don = HoaDon(**hoa_don.dict())
-    db.add(db_hoa_don)
-    db.commit()
-    db.refresh(db_hoa_don)
-    return db_hoa_don
+    
+    # Validation các field
+    validation_errors = []
+    
+    # 1. Validate ngày giao dịch
+    if hoa_don.ngay_giao_dich:
+        try:
+            datetime.strptime(hoa_don.ngay_giao_dich, '%Y-%m-%d')
+        except ValueError:
+            validation_errors.append("Ngày giao dịch không đúng định dạng YYYY-MM-DD")
+    
+    # 2. Validate giờ giao dịch
+    if hoa_don.gio_giao_dich:
+        if not re.match(r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$', hoa_don.gio_giao_dich):
+            validation_errors.append("Giờ giao dịch không đúng định dạng HH:MM")
+    
+    # 3. Validate số tiền
+    if hoa_don.tong_so_tien:
+        try:
+            amount = int(hoa_don.tong_so_tien)
+            if amount <= 0:
+                validation_errors.append("Tổng số tiền phải lớn hơn 0")
+        except ValueError:
+            validation_errors.append("Tổng số tiền phải là số nguyên")
+    
+    # 4. Validate phí
+    if hoa_don.tien_phi:
+        try:
+            fee = int(hoa_don.tien_phi)
+            if fee < 0:
+                validation_errors.append("Phí không được âm")
+        except ValueError:
+            validation_errors.append("Phí phải là số nguyên")
+    
+    # 5. Validate CK vào/ra
+    if hoa_don.ck_vao:
+        try:
+            ck_vao = int(hoa_don.ck_vao)
+            if ck_vao < 0:
+                validation_errors.append("CK vào không được âm")
+        except ValueError:
+            validation_errors.append("CK vào phải là số nguyên")
+    
+    if hoa_don.ck_ra:
+        try:
+            ck_ra = int(hoa_don.ck_ra)
+            if ck_ra < 0:
+                validation_errors.append("CK ra không được âm")
+        except ValueError:
+            validation_errors.append("CK ra phải là số nguyên")
+    
+    # 6. Validate số điện thoại
+    if hoa_don.so_dien_thoai:
+        if not re.match(r'^[0-9]{10,11}$', hoa_don.so_dien_thoai):
+            validation_errors.append("Số điện thoại không hợp lệ (10-11 số)")
+    
+    # 7. Validate số thẻ (nếu có)
+    if hoa_don.so_the:
+        if not re.match(r'^[0-9]{4,19}$', hoa_don.so_the):
+            validation_errors.append("Số thẻ không hợp lệ")
+    
+    # 8. Validate TID/MID
+    if hoa_don.tid and len(hoa_don.tid) > 50:
+        validation_errors.append("TID quá dài (tối đa 50 ký tự)")
+    
+    if hoa_don.mid and len(hoa_don.mid) > 50:
+        validation_errors.append("MID quá dài (tối đa 50 ký tự)")
+    
+    # 9. Validate tên khách
+    if hoa_don.ten_khach and len(hoa_don.ten_khach.strip()) == 0:
+        validation_errors.append("Tên khách không được để trống")
+    
+    # 10. Validate người gửi
+    if hoa_don.nguoi_gui and len(hoa_don.nguoi_gui.strip()) == 0:
+        validation_errors.append("Người gửi không được để trống")
+    
+    # Nếu có lỗi validation, trả về tất cả lỗi
+    if validation_errors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": "Validation failed", "errors": validation_errors}
+        )
+    
+    # Tạo hóa đơn mới
+    try:
+        db_hoa_don = HoaDon(**hoa_don.dict())
+        db.add(db_hoa_don)
+        await db.commit()
+        await db.refresh(db_hoa_don)
+        return db_hoa_don
+    except IntegrityError as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Lỗi khi tạo hóa đơn (có thể trùng lặp dữ liệu)"
+        )
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Lỗi server khi tạo hóa đơn"
+        )
 
 async def update_hoa_don(
     hoa_don_id, 

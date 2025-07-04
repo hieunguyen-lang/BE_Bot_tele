@@ -48,7 +48,7 @@ async def get_hoa_don_grouped(
         current_user=current_user
     )
 
-@router.post("/api/hoa-don", response_model=HoaDonOut)
+@router.post("/", response_model=HoaDonOut)
 async def create_hoa_don(
     hoa_don: HoaDonCreate, 
     db: AsyncSession = Depends(get_db),
