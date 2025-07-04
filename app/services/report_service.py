@@ -9,7 +9,7 @@ from sqlalchemy.future import select
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.mysql import insert
 from ..models.hoa_don_models import HoaDon
-from ..schemas.hoadon_schemas import HoaDonOut,HoaDonUpdate,HoaDonCreate
+from ..schemas.report_schemas import HoaDonCalendarEvent
 from ..models import User, UserRole, hoa_don_models
 from ..auth import verify_password, get_password_hash
 from fastapi import HTTPException, status
@@ -21,6 +21,9 @@ from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from sqlalchemy import select, func, cast, Date,Integer
+from sqlalchemy.orm import aliased
+from dateutil.relativedelta import relativedelta
+
 async def report_summary(type, from_, to, db, current_user=User):
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="No permission")
@@ -157,3 +160,57 @@ async def commission_by_sender(from_date, to_date, db, current_user):
         })
 
     return response
+
+async def get_hoa_don_den_han_ket_toan(from_dt, to_dt, db, current_user):
+    to_dt_safe = to_dt + timedelta(days=1)
+
+    # Tạo window function: đánh số thứ tự trong mỗi batch
+    row_number_expr = func.row_number().over(
+        partition_by=HoaDon.batch_id,
+        order_by=HoaDon.id.asc()
+    ).label("rn")
+
+    # Subquery: lấy tất cả hóa đơn + rn
+    subq = (
+        select(
+            HoaDon.id,
+            HoaDon.batch_id,
+            HoaDon.ten_khach,
+            HoaDon.nguoi_gui,
+            HoaDon.so_dien_thoai,
+            HoaDon.tong_so_tien,
+            HoaDon.tien_phi,
+            HoaDon.thoi_gian,
+            HoaDon.so_hoa_don,
+            HoaDon.tinh_trang,
+            row_number_expr
+        )
+        .where(HoaDon.thoi_gian >= from_dt)
+        .where(HoaDon.thoi_gian < to_dt_safe)
+    ).subquery()
+
+    HD = aliased(subq)
+
+    # Truy vấn chính: chỉ lấy những hóa đơn đại diện mỗi batch
+    stmt = (
+        select(HD)
+        .where(HD.c.rn == 1)
+        .order_by(HD.c.thoi_gian)
+    )
+
+    result = await db.execute(stmt)
+    hoa_dons = result.fetchall()
+
+    # Format dữ liệu cho FullCalendar
+    return [
+        HoaDonCalendarEvent(
+            id=row.id,
+            title=f"{row.ten_khach or ''} - {row.so_dien_thoai or ''}",
+            start=row.thoi_gian + relativedelta(months=1),
+            ten_khach=row.ten_khach,
+            nguoi_gui=row.nguoi_gui,
+            so_dien_thoai=row.so_dien_thoai,
+            batch_id=row.batch_id,
+        )
+        for row in hoa_dons
+    ]
