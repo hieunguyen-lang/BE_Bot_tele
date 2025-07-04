@@ -316,27 +316,31 @@ async def export_hoa_don_excel(
         tong_cong = sum(int(r.tong_so_tien or 0) for r in records)
         for r in records:
             row = {
-                "ngay": r.ngay_giao_dich,
+                "ngay_giao_dich": r.ngay_giao_dich,
                 "nguoi_gui": r.nguoi_gui,
                 "ten_khach": r.ten_khach,
-                "sdt_khach": r.so_dien_thoai,
-                "loai": r.type_dao_rut,
-                "so_tien": r.tong_so_tien,
+                "so_dien_thoai": r.so_dien_thoai,
+                "type_dao_rut": r.type_dao_rut,
                 "ket_toan": tong_cong,
                 "so_the": r.so_the,
                 "tid": r.tid,
                 "so_lo": r.so_lo,
                 "so_hoa_don": r.so_hoa_don,
-                "gio": r.gio_giao_dich,
-                "ten_pos": r.ten_may_pos,
-                "phi_pos": r.phi_pos,
-                "phi_dv": r.tien_phi,
-                "phi_thu_khach": r.phi_thu_khach,
-                "ck_khach_rut": r.ck_khach_rut,
-                "tien_ve_tk": r.tien_ve_tk_cty,
-                "tinh_trang": r.tinh_trang,
-                "ly_do": r.ly_do
+                "gio_giao_dich": r.gio_giao_dich,
+                "ten_may_pos": r.ten_may_pos,
+                "tong_so_tien": r.tong_so_tien,
+                "phan_tram_phi": r.phan_tram_phi,
+                "tien_phi": r.tien_phi,
+                "ck_ra": r.ck_ra,
+                "ck_vao": r.ck_vao,
+                "stk_khach": r.stk_khach,
+                "stk_cty": r.stk_cty,
+                "dia_chi": r.dia_chi,
+                "caption_goc": r.caption_goc,
+                "ly_do": r.ly_do,
+                "tinh_trang": r.tinh_trang
             }
+
             all_rows.append(row)
 
     # ✅ Tạo Excel
@@ -345,20 +349,62 @@ async def export_hoa_don_excel(
     ws.title = "Hóa đơn"
 
     headers = [
-        "STT", "NGÀY", "NGƯỜI GỬI", "HỌ VÀ TÊN KHÁCH", "SĐT KHÁCH", "ĐÁO / RÚT", "SỐ TIỀN", "KẾT TOÁN",
-        "SỐ THẺ", "TID", "SỐ LÔ", "SỐ HÓA ĐƠN", "GIỜ GIAO DỊCH", "TÊN POS", "PHÍ POS", "PHÍ DV",
-        "PHÍ THU KHÁCH", "CK KHÁCH RÚT", "TIỀN VỀ TK CTY", "TÌNH TRẠNG", "LÝ DO"
+        "STT",
+        "NGÀY",
+        "NGƯỜI GỬI",
+        "TÊN KHÁCH",
+        "SĐT KHÁCH",
+        "ĐÁO / RÚT",
+        "KẾT TOÁN",
+        "SỐ THẺ",
+        "TID",
+        "SỐ LÔ",
+        "SỐ HÓA ĐƠN",
+        "GIỜ GIAO DỊCH",
+        "POS",
+        "SỐ TIỀN",
+        "Phí %",
+        "PHÍ DV",
+        "CK ra",
+        "CK vào",
+        "STK KHÁCH",
+        "STK CÔNG TY",
+        "ĐỊA CHỈ",
+        "NOTE GỐC",
+        "LÝ DO",
+        "TÌNH TRẠNG",
     ]
+
     ws.append(headers)
 
     for idx, r in enumerate(all_rows, 1):
         ws.append([
             idx,
-            r["ngay"], r["nguoi_gui"], r["ten_khach"], r["sdt_khach"], r["loai"],
-            r["so_tien"], r["ket_toan"], r["so_the"], r["tid"], r["so_lo"], r["so_hoa_don"],
-            r["gio"], r["ten_pos"], r["phi_pos"], r["phi_dv"], r["phi_thu_khach"],
-            r["ck_khach_rut"], r["tien_ve_tk"], r["tinh_trang"], r["ly_do"]
+            r.get("ngay"),
+            r.get("nguoi_gui"),
+            r.get("ten_khach"),
+            r.get("sdt_khach"),
+            r.get("loai"),
+            r.get("ket_toan"),
+            r.get("so_the"),
+            r.get("tid"),
+            r.get("so_lo"),
+            r.get("so_hoa_don"),
+            r.get("gio"),
+            r.get("ten_pos"),
+            r.get("so_tien"),
+            r.get("phan_tram_phi"),
+            r.get("phi_dv"),
+            r.get("ck_ra"),
+            r.get("ck_vao"),
+            r.get("stk_khach"),
+            r.get("stk_cty"),
+            r.get("dia_chi"),
+            r.get("caption_goc"),
+            r.get("ly_do"),
+            r.get("tinh_trang"),
         ])
+
 
     # Co giãn cột
     for col in ws.columns:

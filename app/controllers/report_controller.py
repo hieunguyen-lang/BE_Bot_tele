@@ -5,7 +5,7 @@ from typing import List, Literal
 from typing import List
 from ..database import get_db
 from ..models import User, UserRole
-from ..schemas.hoadon_schemas import HoaDonOut,HoaDonUpdate,HoaDonCreate
+from ..schemas.report_schemas import CommissionBySenderOut
 from ..auth import get_current_active_user, get_current_admin_user
 from ..services import report_service
 from typing import Any
@@ -20,3 +20,14 @@ async def report_summary(
     current_user: User = Depends(get_current_active_user)
 ):
     return await report_service.report_summary(type=type, from_=from_, to=to, db=db, current_user=current_user)
+
+
+@router.get("/commission-by-sender", response_model=List[CommissionBySenderOut])
+async def commission_by_sender(
+    from_date: date = Query(..., alias="from"),
+    to_date: date = Query(..., alias="to"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    # Truy vấn và group theo người gửi
+    return await report_service.commission_by_sender(from_date=from_date, to_date=to_date, db=db, current_user=current_user)
