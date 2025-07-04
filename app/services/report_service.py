@@ -211,6 +211,7 @@ async def get_hoa_don_den_han_ket_toan(from_dt, to_dt, db, current_user):
             nguoi_gui=row.nguoi_gui,
             so_dien_thoai=row.so_dien_thoai,
             batch_id=row.batch_id,
+            thoi_gian= row.thoi_gian
         )
         for row in hoa_dons
     ]

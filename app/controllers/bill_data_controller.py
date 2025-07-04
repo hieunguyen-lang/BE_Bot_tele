@@ -13,6 +13,32 @@ router = APIRouter()
 async def get_stats(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     return await bill_data.get_hoa_don_stats(db, current_user)
 
+@router.get("/stats-hoadon")
+async def get_stats(
+    so_hoa_don: str = Query(None),
+    so_lo: str = Query(None),
+    tid: str = Query(None),
+    mid: str = Query(None),
+    nguoi_gui: str = Query(None),
+    ten_khach: str = Query(None),
+    so_dien_thoai: str = Query(None),
+    ngay_giao_dich: str = Query(None),
+    db: AsyncSession = Depends(get_db), 
+    current_user: User = Depends(get_current_active_user)
+    ):
+    return await bill_data.get_hoa_don_stats_hoa_don(
+        so_hoa_don,
+        so_lo,
+        tid,
+        mid,
+        nguoi_gui,
+        ten_khach,
+        so_dien_thoai,
+        ngay_giao_dich,
+        db, 
+        current_user
+        )
+
 @router.get("/")
 async def get_hoa_don_grouped(
     page: int = Query(1, ge=1),

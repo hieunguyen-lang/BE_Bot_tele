@@ -58,6 +58,61 @@ async def get_hoa_don_stats(db, current_user=User):
         "totalFee": total_fee
     }
 
+async def get_hoa_don_stats_hoa_don(so_hoa_don,so_lo,tid,mid,nguoi_gui,ten_khach,so_dien_thoai,ngay_giao_dich,db, current_user):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action."
+        )
+
+    # Tạo base query
+    query = select(
+        hoa_don_models.HoaDon.batch_id,
+        hoa_don_models.HoaDon.tong_so_tien,
+        hoa_don_models.HoaDon.tien_phi
+    )
+
+    # Áp dụng filter nếu có
+    if so_hoa_don:
+        query = query.where(hoa_don_models.HoaDon.so_hoa_don.contains(so_hoa_don))
+    if so_lo:
+        query = query.where(hoa_don_models.HoaDon.so_lo.contains(so_lo))
+    if tid:
+        query = query.where(hoa_don_models.HoaDon.tid.contains(tid))
+    if mid:
+        query = query.where(hoa_don_models.HoaDon.mid.contains(mid))
+    if nguoi_gui:
+        query = query.where(hoa_don_models.HoaDon.nguoi_gui.contains(nguoi_gui))
+    if ten_khach:
+        query = query.where(hoa_don_models.HoaDon.ten_khach.contains(ten_khach))
+    if so_dien_thoai:
+        query = query.where(hoa_don_models.HoaDon.so_dien_thoai.contains(so_dien_thoai))
+    if ngay_giao_dich:
+        query = query.where(hoa_don_models.HoaDon.ngay_giao_dich == ngay_giao_dich)
+
+    result = await db.execute(query)
+    records = result.fetchall()
+
+    # Tính toán thống kê như cũ
+    total_records = len(records)
+    total_batches = len(set(r[0] for r in records if r[0]))  # batch_id
+    total_amount = sum(int(r[1]) for r in records if r[1] and str(r[1]).isdigit())  # tong_so_tien
+    seen_batches = set()
+    total_fee = 0
+    for r in records:
+        batch_id = r[0]
+        tien_phi = r[2]
+        if batch_id and batch_id not in seen_batches:
+            seen_batches.add(batch_id)
+            if tien_phi and str(tien_phi).isdigit():
+                total_fee += int(tien_phi)
+    return {
+        "totalRecords": total_records,
+        "totalBatches": total_batches,
+        "totalAmount": total_amount,
+        "totalFee": total_fee
+    }    
+
 async def get_hoa_don_grouped(page, page_size, db, filters=None,current_user=User):
     # if current_user.role != UserRole.ADMIN or current_user.role != UserRole.USER:
     #     raise HTTPException(

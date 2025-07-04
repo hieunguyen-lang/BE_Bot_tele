@@ -22,3 +22,4 @@ class HoaDonCalendarEvent(BaseModel):
     nguoi_gui: Optional[str]
     so_dien_thoai: Optional[str]
     batch_id: Optional[str]
+    thoi_gian: Optional[datetime]
