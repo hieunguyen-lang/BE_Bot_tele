@@ -9,6 +9,7 @@ from sqlalchemy.future import select
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.mysql import insert
 from ..models.hoa_don_models import HoaDon
+from ..models.hoa_don_momo_model import HoaDonDien
 from ..schemas.report_schemas import HoaDonCalendarEvent
 from ..models import User, UserRole, hoa_don_models
 from ..auth import verify_password, get_password_hash
@@ -25,8 +26,8 @@ from sqlalchemy.orm import aliased
 from dateutil.relativedelta import relativedelta
 
 async def report_summary(type, from_, to, db, current_user=User):
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="No permission")
+    # if current_user.role != UserRole.ADMIN:
+    #     raise HTTPException(status_code=403, detail="No permission")
 
     # Chọn hàm group theo type
     if type == 'hour':
@@ -49,6 +50,7 @@ async def report_summary(type, from_, to, db, current_user=User):
             hoa_don_models.HoaDon.batch_id,
             hoa_don_models.HoaDon.tong_so_tien,
             hoa_don_models.HoaDon.tien_phi,
+            hoa_don_models.HoaDon.khach_moi,
             group_expr.label("period")
         )
         .where(
@@ -68,13 +70,14 @@ async def report_summary(type, from_, to, db, current_user=User):
         batch_id = r.batch_id
         tong_so_tien = r.tong_so_tien
         tien_phi = r.tien_phi
-
+        khach_moi = r.khach_moi
         if period not in summary:
             summary[period] = {
                 "total_amount": 0,
                 "total_fee": 0,
                 "total_batches": set(),
-                "seen_batches": set()
+                "seen_batches": set(),
+                "new_customers": 0
             }
 
         # tổng tiền
@@ -90,14 +93,16 @@ async def report_summary(type, from_, to, db, current_user=User):
                 summary[period]["seen_batches"].add(batch_id)
                 if tien_phi and str(tien_phi).isdigit():
                     summary[period]["total_fee"] += int(tien_phi)
-
+        if khach_moi and str(khach_moi).lower() in ['true', '1', 'yes']:
+            summary[period]["new_customers"] += 1
     # Format output
     return [
         {
             "period": period,
             "total_amount": data["total_amount"],
             "total_fee": data["total_fee"],
-            "total_batches": len(data["total_batches"])
+            "total_batches": len(data["total_batches"]),
+            "total_new_customers": data["new_customers"]
         }
         for period, data in sorted(summary.items())
     ]
@@ -169,6 +174,15 @@ async def get_hoa_don_den_han_ket_toan(from_dt, to_dt, db, current_user):
         partition_by=HoaDon.batch_id,
         order_by=HoaDon.id.asc()
     ).label("rn")
+    
+    # Subquery: lấy tất cả hóa đơn + rn
+    conditions = [
+        HoaDon.thoi_gian >= from_dt,
+        HoaDon.thoi_gian < to_dt_safe,
+    ]
+
+    if current_user.role == UserRole.USER:
+        conditions.append(HoaDon.nguoi_gui == current_user.username)
 
     # Subquery: lấy tất cả hóa đơn + rn
     subq = (
@@ -185,8 +199,7 @@ async def get_hoa_don_den_han_ket_toan(from_dt, to_dt, db, current_user):
             HoaDon.tinh_trang,
             row_number_expr
         )
-        .where(HoaDon.thoi_gian >= from_dt)
-        .where(HoaDon.thoi_gian < to_dt_safe)
+        .where(*conditions)
     ).subquery()
 
     HD = aliased(subq)

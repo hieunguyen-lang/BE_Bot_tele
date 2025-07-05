@@ -107,4 +107,5 @@ class HoaDonUpdate(HoaDonBase):
 class HoaDonOut(HoaDonBase):
     id: int
     class Config:
-        orm_mode = True        
+        orm_mode = True      
+

@@ -23,7 +23,7 @@ async def create_user(
         raise HTTPException(status_code=400, detail="Username already registered")
     return await user_service.create_user(db=db, user=user)
 
-@router.get("/", response_model=List[UserSchema])
+@router.get("/")
 async def read_users(
     skip: int = 0,
     limit: int = 100,

@@ -74,6 +74,40 @@ async def get_hoa_don_grouped(
         current_user=current_user
     )
 
+@router.get("/momo")
+async def get_hoa_don_dien_grouped(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(200, ge=1),
+    ma_giao_dich: str = Query(None),
+    ten_zalo: str = Query(None),
+    nguoi_gui: str = Query(None),
+    from_date: str = Query(None, description="Format: YYYY-MM-DD"),
+    to_date: str = Query(None, description="Format: YYYY-MM-DD"),
+    search: str = Query(None, description="Tìm kiếm theo tên KH, mã KH, mã GD"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    
+    filters = {
+        "ma_giao_dich": ma_giao_dich,
+        "ten_zalo": ten_zalo,
+        "nguoi_gui": nguoi_gui,
+        "from_date": from_date,
+        "to_date": to_date,
+        "search": search,
+    }
+    
+    # Loại bỏ các giá trị None khỏi filters
+    filters = {k: v for k, v in filters.items() if v is not None}
+    
+    return await bill_data.get_hoa_don_dien_grouped(
+        db=db, 
+        page=page, 
+        page_size=page_size, 
+        filters=filters,
+        current_user=current_user
+    )
+
 @router.post("/", response_model=HoaDonOut)
 async def create_hoa_don(
     hoa_don: HoaDonCreate, 

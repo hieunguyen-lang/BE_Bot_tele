@@ -2,14 +2,16 @@ import requests
 import re
 import random
 from lxml import html
-from datetime import datetime
+from datetime import datetime,timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.mysql import insert
 from ..models.hoa_don_models import HoaDon
+from ..models.hoa_don_momo_model import HoaDonDien
 from ..schemas.hoadon_schemas import HoaDonOut,HoaDonUpdate,HoaDonCreate
+from .. schemas.hoadon_dien_schemas import HoaDonDienOut
 from ..models import User, UserRole, hoa_don_models
 from ..auth import verify_password, get_password_hash
 from fastapi import HTTPException, status
@@ -59,11 +61,7 @@ async def get_hoa_don_stats(db, current_user=User):
     }
 
 async def get_hoa_don_stats_hoa_don(so_hoa_don,so_lo,tid,mid,nguoi_gui,ten_khach,so_dien_thoai,ngay_giao_dich,db, current_user):
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to perform this action."
-        )
+    
 
     # Tạo base query
     query = select(
@@ -71,7 +69,8 @@ async def get_hoa_don_stats_hoa_don(so_hoa_don,so_lo,tid,mid,nguoi_gui,ten_khach
         hoa_don_models.HoaDon.tong_so_tien,
         hoa_don_models.HoaDon.tien_phi
     )
-
+    if current_user.role != UserRole.ADMIN:
+        query = query.where(hoa_don_models.HoaDon.nguoi_gui == current_user.username)
     # Áp dụng filter nếu có
     if so_hoa_don:
         query = query.where(hoa_don_models.HoaDon.so_hoa_don.contains(so_hoa_don))
@@ -112,6 +111,7 @@ async def get_hoa_don_stats_hoa_don(so_hoa_don,so_lo,tid,mid,nguoi_gui,ten_khach
         "totalAmount": total_amount,
         "totalFee": total_fee
     }    
+
 
 async def get_hoa_don_grouped(page, page_size, db, filters=None,current_user=User):
     # if current_user.role != UserRole.ADMIN or current_user.role != UserRole.USER:
@@ -190,6 +190,90 @@ async def get_hoa_don_grouped(page, page_size, db, filters=None,current_user=Use
         hoa_don_dict = r.__dict__.copy()
         hoa_don_dict["so_the"] = masked_so_the
         grouped[r.batch_id].append(HoaDonOut(**hoa_don_dict))
+
+    data = [
+        {"batch_id": batch_id, "records": grouped[batch_id]}
+        for batch_id in batch_ids
+    ]
+
+    return {"total": total, "data": data}
+
+
+async def get_hoa_don_dien_grouped(page, page_size, db, filters=None,current_user=User):
+    # if current_user.role != UserRole.ADMIN or current_user.role != UserRole.USER:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_403_FORBIDDEN,
+    #         detail="You do not have permission to perform this action."
+    #     )
+    # Tạo base query với filters
+    base_query = select(HoaDonDien)
+    # 2. Nếu không phải admin → chỉ được xem hóa đơn của mình
+    if current_user.role != UserRole.ADMIN:
+        base_query = base_query.where(HoaDonDien.nguoi_gui == current_user.username)
+    # Áp dụng filters
+    if filters:
+        if filters.get("ma_giao_dich"):
+            base_query = base_query.where(HoaDonDien.ma_giao_dich.contains(filters["ma_giao_dich"]))
+        if filters.get("ten_zalo"):
+            base_query = base_query.where(HoaDonDien.ten_zalo(filters["ten_zalo"]))
+        if filters.get("nguoi_gui"):
+            base_query = base_query.where(HoaDonDien.nguoi_gui.contains(filters["nguoi_gui"]))
+        # Thêm filter theo thời gian
+        if filters.get("from_date"):
+            from_date = datetime.strptime(filters["from_date"], "%Y-%m-%d").date()
+            base_query = base_query.where(HoaDonDien.thoi_gian >= from_date)
+        
+        if filters.get("to_date"):
+            to_date = datetime.strptime(filters["to_date"], "%Y-%m-%d").date()
+            # Thêm 1 ngày để bao gồm cả ngày kết thúc
+            to_date = to_date + timedelta(days=1)
+            base_query = base_query.where(HoaDonDien.thoi_gian < to_date)
+
+    # 1. Lấy danh sách batch_id (phân trang) với filter
+    sub = (
+        select(
+            HoaDonDien.batch_id,
+            func.min(HoaDonDien.thoi_gian).label("min_time")
+        )
+        .where(*base_query._where_criteria)  # sử dụng filter có sẵn
+        .group_by(HoaDonDien.batch_id)
+        .order_by(desc("min_time"))
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .subquery()
+    )
+
+    # 2. Lấy batch_id từ subquery
+    stmt_batch_ids = select(sub.c.batch_id)
+    result = await db.execute(stmt_batch_ids)
+    batch_ids = [row[0] for row in result.fetchall()]
+
+    # 3. Tổng số batch_id (không cần offset/limit)
+    stmt_total = (
+        select(func.count())
+        .select_from(
+            select(HoaDonDien.batch_id)
+            .where(*base_query._where_criteria)
+            .distinct()
+            .subquery()
+        )
+    )
+    total_result = await db.execute(stmt_total)
+    total = total_result.scalar()
+
+    # 4. Lấy record theo batch_id
+    stmt_records = base_query.where(HoaDonDien.batch_id.in_(batch_ids))
+    result = await db.execute(stmt_records)
+    records = result.scalars().all()
+
+    # 5. Nhóm lại
+    grouped = defaultdict(list)
+    for r in records:
+        masked_so_the = None
+
+        hoa_don_dict = r.__dict__.copy()
+        hoa_don_dict["so_the"] = masked_so_the
+        grouped[r.batch_id].append(HoaDonDienOut(**hoa_don_dict))
 
     data = [
         {"batch_id": batch_id, "records": grouped[batch_id]}
