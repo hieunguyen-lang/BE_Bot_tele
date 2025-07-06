@@ -8,10 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.mysql import insert
+from sqlalchemy import cast, INT
 from ..models.hoa_don_models import HoaDon
 from ..models.hoa_don_momo_model import HoaDonDien
+from ..models.hoa_don_doiung_model import DoiUng
 from ..schemas.hoadon_schemas import HoaDonOut,HoaDonUpdate,HoaDonCreate
 from .. schemas.hoadon_dien_schemas import HoaDonDienOut
+from .. schemas.doiung_schemas import DoiUngOut
 from ..models import User, UserRole, hoa_don_models
 from ..auth import verify_password, get_password_hash
 from fastapi import HTTPException, status
@@ -214,20 +217,22 @@ async def get_hoa_don_dien_grouped(page, page_size, db, filters=None,current_use
     if filters:
         if filters.get("ma_giao_dich"):
             base_query = base_query.where(HoaDonDien.ma_giao_dich.contains(filters["ma_giao_dich"]))
+        if filters.get("ma_khach_hang"):
+            base_query = base_query.where(HoaDonDien.ma_khach_hang.contains(filters["ma_khach_hang"]))
         if filters.get("ten_zalo"):
-            base_query = base_query.where(HoaDonDien.ten_zalo(filters["ten_zalo"]))
+            base_query = base_query.where(HoaDonDien.ten_zalo.contains(filters["ten_zalo"]))
         if filters.get("nguoi_gui"):
             base_query = base_query.where(HoaDonDien.nguoi_gui.contains(filters["nguoi_gui"]))
         # Thêm filter theo thời gian
         if filters.get("from_date"):
             from_date = datetime.strptime(filters["from_date"], "%Y-%m-%d").date()
             base_query = base_query.where(HoaDonDien.thoi_gian >= from_date)
-        
+
         if filters.get("to_date"):
             to_date = datetime.strptime(filters["to_date"], "%Y-%m-%d").date()
-            # Thêm 1 ngày để bao gồm cả ngày kết thúc
-            to_date = to_date + timedelta(days=1)
+            to_date += timedelta(days=1)
             base_query = base_query.where(HoaDonDien.thoi_gian < to_date)
+
 
     # 1. Lấy danh sách batch_id (phân trang) với filter
     sub = (
@@ -281,6 +286,140 @@ async def get_hoa_don_dien_grouped(page, page_size, db, filters=None,current_use
     ]
 
     return {"total": total, "data": data}
+
+async def get_hoa_don_dien_stats(db, filters=None, current_user=User):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action."
+        )
+
+    base_query = select(
+        func.count().label("total_records"),
+        func.sum(HoaDonDien.so_tien.cast(INT)).label("total_amount")
+    )
+
+    if filters:
+        if filters.get("ma_giao_dich"):
+            base_query = base_query.where(HoaDonDien.ma_giao_dich.contains(filters["ma_giao_dich"]))
+        if filters.get("ma_khach_hang"):
+            base_query = base_query.where(HoaDonDien.ma_khach_hang.contains(filters["ma_khach_hang"]))
+        if filters.get("ten_zalo"):
+            base_query = base_query.where(HoaDonDien.ten_zalo.contains(filters["ten_zalo"]))
+        if filters.get("nguoi_gui"):
+            base_query = base_query.where(HoaDonDien.nguoi_gui.contains(filters["nguoi_gui"]))
+        # Thêm filter theo thời gian
+        if filters.get("from_date"):
+            from_date = datetime.strptime(filters["from_date"], "%Y-%m-%d").date()
+            base_query = base_query.where(HoaDonDien.thoi_gian >= from_date)
+
+        if filters.get("to_date"):
+            to_date = datetime.strptime(filters["to_date"], "%Y-%m-%d").date()
+            to_date += timedelta(days=1)
+            base_query = base_query.where(HoaDonDien.thoi_gian < to_date)
+
+    result = await db.execute(base_query)
+    row = result.first()
+
+    return {
+        "total": row.total_records or 0,
+        "totalAmount": int(row.total_amount) if row.total_amount else 0
+    }
+
+
+async def get_doi_ung_flat(page, page_size, db, filters=None, current_user=User):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action."
+        )
+    # Tạo base query với filters
+    base_query = select(DoiUng)
+
+    if filters:
+        if filters.get("ma_giao_dich"):
+            base_query = base_query.where(DoiUng.ma_giao_dich.contains(filters["ma_giao_dich"]))
+        if filters.get("ma_khach_hang"):
+            base_query = base_query.where(DoiUng.ma_khach_hang.contains(filters["ma_khach_hang"]))
+        if filters.get("ten_khach_hang"):
+            base_query = base_query.where(DoiUng.ten_khach_hang.contains(filters["ten_khach_hang"]))
+        if filters.get("ten_zalo"):
+            base_query = base_query.where(DoiUng.ten_zalo == filters["ten_zalo"])
+        if filters.get("nguoi_gui"):
+            base_query = base_query.where(DoiUng.nguoi_gui.contains(filters["nguoi_gui"]))
+        if filters.get("from_date"):
+            from_date = datetime.strptime(filters["from_date"], "%Y-%m-%d").date()
+            base_query = base_query.where(DoiUng.thoi_gian >= from_date)
+        if filters.get("to_date"):
+            to_date = datetime.strptime(filters["to_date"], "%Y-%m-%d").date() + timedelta(days=1)
+            base_query = base_query.where(DoiUng.thoi_gian < to_date)
+
+    # Tổng số bản ghi thỏa mãn filter
+    stmt_total = select(func.count()).select_from(base_query.subquery())
+    total_result = await db.execute(stmt_total)
+    total = total_result.scalar()
+
+    # Thêm phân trang & sắp xếp
+    stmt_records = (
+        base_query
+        .order_by(desc(DoiUng.thoi_gian))
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+
+    result = await db.execute(stmt_records)
+    records = result.scalars().all()
+
+    # Format ra list
+    data = []
+    for r in records:
+        hoa_don_dict = r.__dict__.copy()
+        hoa_don_dict["so_the"] = None  # mask hoặc xử lý nếu cần
+        data.append(DoiUngOut(**hoa_don_dict))
+
+    return {
+        "total": total,
+        "data": data
+    }
+
+async def get_doi_ung_stats(db, filters=None, current_user=User):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action."
+        )
+
+    base_query = select(
+        func.count().label("total_records"),
+        func.sum(DoiUng.so_tien.cast(INT)).label("total_amount")
+    )
+
+    if filters:
+        if filters.get("ma_giao_dich"):
+            base_query = base_query.where(DoiUng.ma_giao_dich.contains(filters["ma_giao_dich"]))
+        if filters.get("ma_khach_hang"):
+            base_query = base_query.where(DoiUng.ma_khach_hang.contains(filters["ma_khach_hang"]))
+        if filters.get("ten_khach_hang"):
+            base_query = base_query.where(DoiUng.ten_khach_hang.contains(filters["ten_khach_hang"]))
+        if filters.get("ten_zalo"):
+            base_query = base_query.where(DoiUng.ten_zalo == filters["ten_zalo"])
+        if filters.get("nguoi_gui"):
+            base_query = base_query.where(DoiUng.nguoi_gui.contains(filters["nguoi_gui"]))
+        if filters.get("from_date"):
+            from_date = datetime.strptime(filters["from_date"], "%Y-%m-%d").date()
+            base_query = base_query.where(DoiUng.thoi_gian >= from_date)
+        if filters.get("to_date"):
+            to_date = datetime.strptime(filters["to_date"], "%Y-%m-%d").date() + timedelta(days=1)
+            base_query = base_query.where(DoiUng.thoi_gian < to_date)
+
+    result = await db.execute(base_query)
+    row = result.first()
+
+    return {
+        "total": row.total_records or 0,
+        "totalAmount": int(row.total_amount) if row.total_amount else 0
+    }
+
 
 async def create_hoa_don(db, hoa_don, current_user=User):
     if current_user.role != UserRole.ADMIN:

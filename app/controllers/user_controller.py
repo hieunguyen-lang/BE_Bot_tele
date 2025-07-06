@@ -13,7 +13,7 @@ router = APIRouter()
 async def create_user(
     user: UserCreate,
     db: AsyncSession = Depends(get_db),
-    #current_user: User = Depends(get_current_admin_user)  # Chỉ admin mới có thể tạo user
+    current_user: User = Depends(get_current_admin_user)  # Chỉ admin mới có thể tạo user
 ):
     db_user = await user_service.get_user_by_email(db, email=user.email)
     if db_user:

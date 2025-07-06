@@ -3,8 +3,8 @@ import enum
 from .base import BaseModel
 from sqlalchemy.sql import func
 
-class HoaDonDien(BaseModel):
-    __tablename__ = "hoa_don_dien"
+class DoiUng(BaseModel):
+    __tablename__ = "doi_ung"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     nha_cung_cap = Column(String(255), nullable=True)
@@ -21,5 +21,6 @@ class HoaDonDien(BaseModel):
     nguoi_gui  = Column(String(100), nullable=True)
     batch_id = Column(String(250), nullable=True)
     update_at = Column(DateTime, nullable=True)
-    ten_zalo = Column(String(250), nullable=True)
+    phi_phan_tram = Column(String(250), nullable=True)
+    doi_tac = Column(String(250), nullable=True)
     key_redis = Column(String(250), nullable=True)
