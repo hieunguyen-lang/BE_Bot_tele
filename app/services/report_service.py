@@ -108,44 +108,17 @@ async def report_summary(type, from_, to, db, current_user=User):
     ]
 
 async def commission_by_sender(from_date, to_date, db, current_user):
-    from sqlalchemy.orm import aliased
-    
-
-    # Tạo window function: đánh số thứ tự mỗi hóa đơn theo batch_id
-    row_number_expr = func.row_number().over(
-        partition_by=HoaDon.batch_id,
-        order_by=HoaDon.id.asc()
-    ).label("rn")
-
-    # Subquery chọn mỗi batch_id một hóa đơn duy nhất
-    subq = (
+    # Query tổng hợp theo nguoi_gui
+    stmt = (
         select(
-            HoaDon.id,
             HoaDon.nguoi_gui,
-            HoaDon.tien_phi,
-            HoaDon.tong_so_tien,
-            HoaDon.ngay_giao_dich,
-            HoaDon.batch_id,
-            row_number_expr
+            func.sum(HoaDon.tien_phi).label("total_fee"),
+            func.sum(HoaDon.tong_so_tien).label("total_amount"),
+            func.count(HoaDon.id).label("total_transactions"),
         )
         .where(HoaDon.ngay_giao_dich >= from_date)
         .where(HoaDon.ngay_giao_dich <= to_date)
-    ).subquery()
-
-    # Aliased cho dễ xử lý
-    HD = aliased(subq)
-
-    # Truy vấn chính: chỉ lấy những dòng có rn == 1 (tức là duy nhất mỗi batch_id)
-    stmt = (
-        select(
-            HD.c.nguoi_gui,
-            func.sum(HD.c.tien_phi).label("total_fee"),
-            func.sum(HD.c.tong_so_tien).label("total_amount"),
-            func.sum(HD.c.tien_phi).label("total_commission"),
-            func.count(HD.c.id).label("total_transactions"),
-        )
-        .where(HD.c.rn == 1)
-        .group_by(HD.c.nguoi_gui)
+        .group_by(HoaDon.nguoi_gui)
     )
 
     result = await db.execute(stmt)
@@ -154,15 +127,15 @@ async def commission_by_sender(from_date, to_date, db, current_user):
     # Xử lý kết quả
     response = []
     for row in rows:
-        hoa_hong_cuoi_cung = (row.total_fee or 0) * 0.02
         response.append({
             "nguoi_gui": row.nguoi_gui,
-            "total_commission": row.total_commission or 0,
             "total_transactions": row.total_transactions or 0,
             "total_amount": row.total_amount or 0,
             "total_fee": row.total_fee or 0,
-            "hoa_hong_cuoi_cung": hoa_hong_cuoi_cung
+            "total_commission": (row.total_amount or 0) * 0.0002,
+            "hoa_hong_cuoi_cung": (row.total_amount or 0) * 0.0002
         })
+
 
     return response
 
