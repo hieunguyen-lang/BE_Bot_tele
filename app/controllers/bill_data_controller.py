@@ -7,10 +7,11 @@ from ..schemas.hoadon_schemas import HoaDonOut,HoaDonUpdate,HoaDonCreate
 from ..auth import get_current_active_user, get_current_admin_user
 from ..services import bill_data
 from typing import Any
+from app.auth_permission import require_permission
 router = APIRouter()
 
 @router.get("/stats")
-async def get_stats(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
+async def get_stats(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user), perm: bool = Depends(require_permission("bill:view"))):
     return await bill_data.get_hoa_don_stats(db, current_user)
 
 
@@ -24,7 +25,8 @@ async def get_doi_ung_stats(
     to_date: str = Query(None, description="Format: YYYY-MM-DD"),
     search: str = Query(None, description="Tìm kiếm theo tên KH, mã KH, mã GD"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:view"))
 ):
     
     filters = {
@@ -56,7 +58,8 @@ async def get_hoa_don_dien_stats(
     to_date: str = Query(None, description="Format: YYYY-MM-DD"),
     search: str = Query(None, description="Tìm kiếm theo tên KH, mã KH, mã GD"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:view"))
 ):
     
     filters = {
@@ -90,7 +93,8 @@ async def get_stats(
     so_dien_thoai: str = Query(None),
     ngay_giao_dich: str = Query(None),
     db: AsyncSession = Depends(get_db), 
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:view"))
     ):
     return await bill_data.get_hoa_don_stats_hoa_don(
         so_hoa_don,
@@ -118,7 +122,8 @@ async def get_hoa_don_grouped(
     so_dien_thoai: str = Query(None),
     ngay_giao_dich: str = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:view"))
 ):
     
     filters = {
@@ -152,7 +157,8 @@ async def get_hoa_don_dien_grouped(
     to_date: str = Query(None, description="Format: YYYY-MM-DD"),
     search: str = Query(None, description="Tìm kiếm theo tên KH, mã KH, mã GD"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:view"))
 ):
     
     filters = {
@@ -188,7 +194,8 @@ async def get_doi_ung_flat(
     to_date: str = Query(None, description="Format: YYYY-MM-DD"),
     search: str = Query(None, description="Tìm kiếm theo tên KH, mã KH, mã GD"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:view"))
 ):
     
     filters = {
@@ -216,7 +223,8 @@ async def get_doi_ung_flat(
 async def create_hoa_don(
     hoa_don: HoaDonCreate, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:create"))
     ):
     return await bill_data.create_hoa_don(
         db=db, 
@@ -229,7 +237,8 @@ async def update_hoa_don(
     hoa_don_id: int, 
     hoa_don: HoaDonUpdate, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:update"))
 ):
     return await bill_data.update_hoa_don(
             hoa_don_id, 
@@ -242,7 +251,8 @@ async def update_hoa_don(
 async def delete_hoa_don(
     hoa_don_id: int, 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:delete"))
 ):
     return await bill_data.delete_hoa_don(
             hoa_don_id, 
@@ -264,7 +274,8 @@ async def export_hoa_don_excel(
     so_dien_thoai: str = Query(None),
     ngay_giao_dich: str = Query(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:export"))
 ): 
     filters = {
         "so_hoa_don": so_hoa_don,
@@ -277,9 +288,9 @@ async def export_hoa_don_excel(
         "ngay_giao_dich": ngay_giao_dich,
     }
     return await bill_data.export_hoa_don_excel(
-        db=db, 
         page=page, 
         page_size=page_size, 
+        db=db, 
         filters=filters,
         current_user=current_user
     )
