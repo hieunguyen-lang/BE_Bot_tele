@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, Column, String, Enum, Text,Integer,DateTime,BigI
 import enum
 from .base import BaseModel
 from sqlalchemy.sql import func
-
+from datetime import datetime
 class HoaDonDien(BaseModel):
     __tablename__ = "hoa_don_dien"
 
@@ -14,12 +14,13 @@ class HoaDonDien(BaseModel):
     ky_thanh_toan = Column(String(100), nullable=True)
     so_tien = Column(BigInteger, nullable=True)
     ma_giao_dich = Column(String(100), unique=True, nullable=True)
-    thoi_gian = Column(DateTime, nullable=True)
+    thoi_gian = Column(DateTime, default=datetime.now())
     tai_khoan_the = Column(String(100), nullable=True)
     tong_phi = Column(String(100), nullable=True)
     trang_thai = Column(String(50), nullable=True)
     nguoi_gui  = Column(String(100), nullable=True)
     batch_id = Column(String(250), nullable=True)
-    update_at = Column(DateTime, nullable=True)
+    update_at = Column(DateTime, default=datetime.now())
     ten_zalo = Column(String(250), nullable=True)
+    phi_cong_ty_thu = Column(BigInteger, nullable=True)
     key_redis = Column(String(250), nullable=True)

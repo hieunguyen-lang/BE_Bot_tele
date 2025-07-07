@@ -225,24 +225,27 @@ async def get_hoa_don_dien_grouped(page, page_size, db, filters=None,current_use
             base_query = base_query.where(HoaDonDien.nguoi_gui.contains(filters["nguoi_gui"]))
         # Thêm filter theo thời gian
         if filters.get("from_date"):
-            from_date = datetime.strptime(filters["from_date"], "%Y-%m-%d").date()
-            base_query = base_query.where(HoaDonDien.thoi_gian >= from_date)
+            from_date = datetime.strptime(
+                filters["from_date"], "%Y-%m-%d"
+            ).replace(hour=0, minute=0, second=0, microsecond=0)
+            base_query = base_query.where(HoaDonDien.update_at >= from_date)
 
         if filters.get("to_date"):
-            to_date = datetime.strptime(filters["to_date"], "%Y-%m-%d").date()
-            to_date += timedelta(days=1)
-            base_query = base_query.where(HoaDonDien.thoi_gian < to_date)
+            to_date = datetime.strptime(
+                filters["to_date"], "%Y-%m-%d"
+            ).replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+            base_query = base_query.where(HoaDonDien.update_at < to_date)
 
 
     # 1. Lấy danh sách batch_id (phân trang) với filter
     sub = (
         select(
             HoaDonDien.batch_id,
-            func.min(HoaDonDien.thoi_gian).label("min_time")
+            func.max(HoaDonDien.update_at).label("max_time")
         )
-        .where(*base_query._where_criteria)  # sử dụng filter có sẵn
+        .where(*base_query._where_criteria)
         .group_by(HoaDonDien.batch_id)
-        .order_by(desc("min_time"))
+        .order_by(desc("max_time"))
         .offset((page - 1) * page_size)
         .limit(page_size)
         .subquery()
@@ -296,7 +299,8 @@ async def get_hoa_don_dien_stats(db, filters=None, current_user=User):
 
     base_query = select(
         func.count().label("total_records"),
-        func.sum(HoaDonDien.so_tien.cast(INT)).label("total_amount")
+        func.sum(HoaDonDien.so_tien).label("total_amount"),  # ✅ bỏ cast
+        func.sum(HoaDonDien.phi_cong_ty_thu).label("total_fee")
     )
 
     if filters:
@@ -308,23 +312,75 @@ async def get_hoa_don_dien_stats(db, filters=None, current_user=User):
             base_query = base_query.where(HoaDonDien.ten_zalo.contains(filters["ten_zalo"]))
         if filters.get("nguoi_gui"):
             base_query = base_query.where(HoaDonDien.nguoi_gui.contains(filters["nguoi_gui"]))
-        # Thêm filter theo thời gian
         if filters.get("from_date"):
-            from_date = datetime.strptime(filters["from_date"], "%Y-%m-%d").date()
-            base_query = base_query.where(HoaDonDien.thoi_gian >= from_date)
+            from_date = datetime.strptime(
+                filters["from_date"], "%Y-%m-%d"
+            ).replace(hour=0, minute=0, second=0, microsecond=0)
+            base_query = base_query.where(HoaDonDien.update_at >= from_date)
 
         if filters.get("to_date"):
-            to_date = datetime.strptime(filters["to_date"], "%Y-%m-%d").date()
-            to_date += timedelta(days=1)
-            base_query = base_query.where(HoaDonDien.thoi_gian < to_date)
+            to_date = datetime.strptime(
+                filters["to_date"], "%Y-%m-%d"
+            ).replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+            base_query = base_query.where(HoaDonDien.update_at < to_date)
 
     result = await db.execute(base_query)
     row = result.first()
 
     return {
         "total": row.total_records or 0,
-        "totalAmount": int(row.total_amount) if row.total_amount else 0
+        "totalAmount": float(row.total_amount) if row.total_amount else 0,
+        "total_fee": float(row.total_fee)  if row.total_fee else 0,
     }
+
+
+async def create_hoa_don_dien(db, hoa_don):
+    # Kiểm tra trùng mã giao dịch
+    result = await db.execute(
+        select(HoaDonDien).where(HoaDonDien.ma_giao_dich == hoa_don.ma_giao_dich)
+    )
+    if result.scalar():
+        raise HTTPException(status_code=400, detail="Mã giao dịch đã tồn tại")
+    
+    hoa_don_data = hoa_don.dict()
+    # Nếu không có batch_id hoặc batch_id rỗng thì tự động tạo
+    if not hoa_don_data.get("batch_id"):
+        batch_id = "_".join([
+            str(hoa_don_data.get("ten_khach_hang", "")).strip(),
+            str(hoa_don_data.get("ma_khach_hang", "")).strip(),
+            str(hoa_don_data.get("dia_chi", "")).strip(),
+            str(hoa_don_data.get("so_tien", "")).strip(),
+            str(hoa_don_data.get("ma_giao_dich", "")).strip()
+        ])
+        hoa_don_data["batch_id"] = batch_id
+
+    obj = HoaDonDien(**hoa_don_data)
+    db.add(obj)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+async def update_hoa_don_dien(db, hoa_don,id):
+    result = await db.execute(select(HoaDonDien).where(HoaDonDien.id == id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hóa đơn")
+    for k, v in hoa_don.dict(exclude_unset=True).items():
+        setattr(obj, k, v)
+    await db.commit()
+    await db.refresh(obj)
+    return obj
+
+async def delete_hoa_don_dien(db, id):
+    result = await db.execute(select(HoaDonDien).where(HoaDonDien.id == id))
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hóa đơn")
+    await db.delete(obj)
+    await db.commit()
+    return
+
+
 
 
 async def get_doi_ung_flat(page, page_size, db, filters=None, current_user=User):

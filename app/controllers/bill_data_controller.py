@@ -4,6 +4,7 @@ from typing import List
 from ..database import get_db
 from ..models import User, UserRole
 from ..schemas.hoadon_schemas import HoaDonOut,HoaDonUpdate,HoaDonCreate
+from ..schemas.hoadon_dien_schemas import HoaDonDienCreate,HoaDonDienUpdate
 from ..auth import get_current_active_user, get_current_admin_user
 from ..services import bill_data
 from typing import Any
@@ -181,6 +182,39 @@ async def get_hoa_don_dien_grouped(
         filters=filters,
         current_user=current_user
     )
+
+@router.post("/momo", status_code=201)
+async def create_hoa_don_dien(
+    hoa_don: HoaDonDienCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:create"))
+):
+    
+    return await bill_data.create_hoa_don_dien(db,hoa_don)
+    
+
+@router.put("/momo/{id}")
+async def update_hoa_don_dien(
+    id: int,
+    hoa_don: HoaDonDienUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:update"))
+):  
+    return await bill_data.update_hoa_don_dien(db, hoa_don, id)
+    
+@router.delete("/momo/{id}", status_code=204)
+async def delete_hoa_don_dien(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:delete"))
+):
+    return await bill_data.delete_hoa_don_dien(db,id)
+
+
+
 
 @router.get("/doi-ung")
 async def get_doi_ung_flat(

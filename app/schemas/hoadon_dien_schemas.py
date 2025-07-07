@@ -21,6 +21,8 @@ class HoaDonDienBase(BaseSchema):
     batch_id: Optional[str] = None
     update_at: Optional[datetime] = None
     ten_zalo: Optional[str] = None
+    phi_cong_ty_thu:Optional[str] = None
+    key_redis:Optional[str] = None
 
     
 
@@ -29,3 +31,24 @@ class HoaDonDienOut(HoaDonDienBase):
     class Config:
         orm_mode = True      
 
+class HoaDonDienCreate(BaseModel):
+    nha_cung_cap: Optional[str]
+    ten_khach_hang: Optional[str]
+    ma_khach_hang: Optional[str]
+    dia_chi: Optional[str]
+    ky_thanh_toan: Optional[str]
+    so_tien: Optional[int]
+    ma_giao_dich: Optional[str]
+    thoi_gian: Optional[datetime] 
+    tai_khoan_the: Optional[str]
+    tong_phi: Optional[str]
+    trang_thai: Optional[str]
+    nguoi_gui: Optional[str]
+    batch_id: Optional[str]
+    update_at: Optional[datetime] 
+    ten_zalo: Optional[str]
+    key_redis: Optional[str]
+    phi_cong_ty_thu:Optional[str]
+
+class HoaDonDienUpdate(HoaDonDienCreate):
+    pass
