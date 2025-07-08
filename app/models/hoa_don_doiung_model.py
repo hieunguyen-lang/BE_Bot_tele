@@ -16,7 +16,7 @@ class DoiUng(BaseModel):
     ma_giao_dich = Column(String(100), unique=True, nullable=True)
     thoi_gian = Column(DateTime, nullable=True)
     tai_khoan_the = Column(String(100), nullable=True)
-    tong_phi = Column(String(100), nullable=True)
+    tong_phi = Column(BigInteger, nullable=True)
     trang_thai = Column(String(50), nullable=True)
     nguoi_gui  = Column(String(100), nullable=True)
     batch_id = Column(String(250), nullable=True)
