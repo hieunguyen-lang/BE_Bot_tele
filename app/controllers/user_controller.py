@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status,Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
 from ..models import User, UserRole
 from ..schemas import User as UserSchema, UserCreate, UserUpdate
+
 from ..auth import get_current_active_user, get_current_admin_user
 from ..services import user_service
 from app.auth_permission import require_permission
@@ -13,8 +14,41 @@ from sqlalchemy.future import select
 from app.models.permission import Permission
 from app.models.role_permission import RolePermission
 from app.models.user_permission import UserPermission
+from app.schemas.permission import PermissionOut
 
 router = APIRouter()
+async def get_user_permissions(db: AsyncSession, user_id: int):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        return []
+    # Permission từ role
+    role_permissions = []
+    if user.role_id:
+        result = await db.execute(
+            select(Permission)
+            .join(RolePermission, Permission.id == RolePermission.permission_id)
+            .where(RolePermission.role_id == user.role_id)
+        )
+        role_permissions = result.scalars().all()
+    # Permission gán trực tiếp
+    result = await db.execute(
+        select(Permission)
+        .join(UserPermission, Permission.id == UserPermission.permission_id)
+        .where(UserPermission.user_id == user_id)
+    )
+    user_permissions = result.scalars().all()
+    permission_set = {p.name for p in (role_permissions + user_permissions)}
+    return list(permission_set) 
+
+@router.get("/permissions", response_model=List[PermissionOut])
+async def get_all_permissions(
+    db: AsyncSession = Depends(get_db),
+    perm: bool = Depends(require_permission("user:read"))
+):
+    result = await db.execute(select(Permission))
+    permissions = result.scalars().all()
+    return permissions
 
 @router.post("/create_user")
 async def create_user(
@@ -64,7 +98,10 @@ async def read_user(
     db_user = await user_service.get_user(db, user_id=user_id)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return db_user
+    permissions = await get_user_permissions(db, user_id)
+    user_dict = UserSchema.from_orm(db_user).dict()
+    user_dict['permissions'] = permissions
+    return user_dict
 
 @router.patch("/{user_id}", response_model=UserSchema)
 async def update_user(
@@ -83,26 +120,54 @@ async def delete_user(
 ):
     return await user_service.delete_user(db=db, user_id=user_id)
 
-async def get_user_permissions(db: AsyncSession, user_id: int):
+@router.post("/{user_id}/add_permission")
+async def add_permission_to_user(
+    user_id: int,
+    permission_name: str = Body(..., embed=True),
+    db: AsyncSession = Depends(get_db),
+    perm: bool = Depends(require_permission("user:update"))
+):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        return []
-    # Permission từ role
-    role_permissions = []
-    if user.role_id:
-        result = await db.execute(
-            select(Permission)
-            .join(RolePermission, Permission.id == RolePermission.permission_id)
-            .where(RolePermission.role_id == user.role_id)
-        )
-        role_permissions = result.scalars().all()
-    # Permission gán trực tiếp
+        raise HTTPException(status_code=404, detail="User not found")
+    result = await db.execute(select(Permission).where(Permission.name == permission_name))
+    permission = result.scalar_one_or_none()
+    if not permission:
+        raise HTTPException(status_code=404, detail="Permission not found")
     result = await db.execute(
-        select(Permission)
-        .join(UserPermission, Permission.id == UserPermission.permission_id)
-        .where(UserPermission.user_id == user_id)
+        select(UserPermission).where(
+            UserPermission.user_id == user_id,
+            UserPermission.permission_id == permission.id
+        )
     )
-    user_permissions = result.scalars().all()
-    permission_set = {p.name for p in (role_permissions + user_permissions)}
-    return list(permission_set) 
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="User already has this permission")
+    user_permission = UserPermission(user_id=user_id, permission_id=permission.id)
+    db.add(user_permission)
+    await db.commit()
+    return {"msg": "Permission added"}
+
+@router.post("/{user_id}/remove_permission")
+async def remove_permission_from_user(
+    user_id: int,
+    permission_name: str = Body(..., embed=True),
+    db: AsyncSession = Depends(get_db),
+    perm: bool = Depends(require_permission("user:update"))
+):
+    result = await db.execute(select(Permission).where(Permission.name == permission_name))
+    permission = result.scalar_one_or_none()
+    if not permission:
+        raise HTTPException(status_code=404, detail="Permission not found")
+    result = await db.execute(
+        select(UserPermission).where(
+            UserPermission.user_id == user_id,
+            UserPermission.permission_id == permission.id
+        )
+    )
+    user_permission = result.scalar_one_or_none()
+    if not user_permission:
+        raise HTTPException(status_code=404, detail="User does not have this permission")
+    await db.delete(user_permission)
+    await db.commit()
+    return {"msg": "Permission removed"}

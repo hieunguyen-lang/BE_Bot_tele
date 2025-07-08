@@ -42,7 +42,7 @@ async def update_user(db: AsyncSession, user_id: int, user: UserUpdate):
         raise HTTPException(status_code=404, detail="User not found")
     
     update_data = user.dict(exclude_unset=True)
-    if "password" in update_data:
+    if "password" in update_data and update_data['password'] != '':
         update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
     
     for key, value in update_data.items():

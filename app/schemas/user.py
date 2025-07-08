@@ -1,24 +1,26 @@
 from pydantic import EmailStr, validator,Field
-from typing import Optional
+from typing import Optional,List
 from .base import BaseSchema, TimestampSchema
 import re
 class UserBase(BaseSchema):
     email: EmailStr = Field(..., description="Email người dùng")
-    name: str = Field(..., min_length=2, max_length=50)
     username: str = Field(..., min_length=3, max_length=30)
+    permissions: List[str] = []
+    role_id: Optional[int]
+    role: Optional[str]
     @validator("username")
     def validate_username(cls, v):
         if not re.match(r"^[a-zA-Z0-9_]{3,30}$", v):
             raise ValueError("Username chỉ chứa chữ, số và dấu _ (3-30 ký tự)")
         return v
 
-    @validator("name")
-    def validate_name(cls, v):
-        if len(v.strip()) < 2:
-            raise ValueError("Tên phải có ít nhất 2 ký tự")
-        if not re.match(r"^[a-zA-ZÀ-ỹ\s'-]+$", v):
-            raise ValueError("Tên chỉ được chứa chữ cái và khoảng trắng")
-        return v
+    # @validator("name")
+    # def validate_name(cls, v):
+    #     if len(v.strip()) < 2:
+    #         raise ValueError("Tên phải có ít nhất 2 ký tự")
+    #     if not re.match(r"^[a-zA-ZÀ-ỹ\s'-]+$", v):
+    #         raise ValueError("Tên chỉ được chứa chữ cái và khoảng trắng")
+    #     return v
 
     @validator("email")
     def validate_email(cls, v):
@@ -53,3 +55,8 @@ class UserUpdate(BaseSchema):
 class User(UserBase, TimestampSchema):
     id: int
     is_active: bool 
+
+    class Config:
+        orm_mode = True
+
+
