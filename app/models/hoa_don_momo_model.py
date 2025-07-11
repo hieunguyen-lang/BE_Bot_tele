@@ -24,3 +24,9 @@ class HoaDonDien(BaseModel):
     ten_zalo = Column(String(250), nullable=True)
     phi_cong_ty_thu = Column(BigInteger, nullable=True)
     key_redis = Column(String(250), nullable=True)
+    ck_vao = Column(BigInteger, nullable=True)
+    ck_ra = Column(BigInteger, nullable=True)
+    ma_chuyen_khoan = Column(String(250), nullable=True)
+    so_tk = Column(String(250), nullable=True)
+    is_send_or_recieve = Column(Boolean, nullable=False,default=False)
+    

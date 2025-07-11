@@ -23,7 +23,11 @@ class HoaDonDienBase(BaseSchema):
     ten_zalo: Optional[str] = None
     phi_cong_ty_thu:Optional[str] = None
     key_redis:Optional[str] = None
-
+    ck_vao: Optional[str]
+    ck_ra: Optional[str]
+    ma_chuyen_khoan: Optional[str]
+    so_tk: Optional[str]
+    is_send_or_recieve: Optional[str]
     
 
 class HoaDonDienOut(HoaDonDienBase):
@@ -49,6 +53,10 @@ class HoaDonDienCreate(BaseModel):
     ten_zalo: Optional[str]
     key_redis: Optional[str]
     phi_cong_ty_thu:Optional[str]
-
+    ck_vao: Optional[str]
+    ck_ra: Optional[str]
+    ma_chuyen_khoan: Optional[str]
+    so_tk: Optional[str]
+    is_send_or_recieve: Optional[str]
 class HoaDonDienUpdate(HoaDonDienCreate):
     pass

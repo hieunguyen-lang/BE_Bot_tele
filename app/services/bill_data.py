@@ -204,12 +204,7 @@ async def get_hoa_don_grouped(page, page_size, db, filters=None,current_user=Use
 
 
 async def get_hoa_don_dien_grouped(page, page_size, db, filters=None,current_user=User):
-    # if current_user.role != UserRole.ADMIN or current_user.role != UserRole.USER:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="You do not have permission to perform this action."
-    #     )
-    # Tạo base query với filters
+   
     base_query = select(HoaDonDien)
     # 2. Nếu không phải admin → chỉ được xem hóa đơn của mình
     if current_user.role != UserRole.ADMIN:
