@@ -36,4 +36,5 @@ class HoaDon(BaseModel):
     dia_chi =  Column(String, nullable = True)
     khach_moi = Column(Boolean, default = False)
     phan_tram_phi = Column(String, nullable = True)
+    key_redis = Column(String, nullable = True)
 

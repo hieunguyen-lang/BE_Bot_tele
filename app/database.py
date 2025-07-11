@@ -8,7 +8,7 @@ load_dotenv()
 # MySQL connection URL format: mysql+aiomysql://user:password@host:port/database
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Create async engine
+# Create async engined
 engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
     echo=True,

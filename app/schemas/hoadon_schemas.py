@@ -35,6 +35,7 @@ class HoaDonBase(BaseSchema):
     stk_cty: Optional[str] =  None
     khach_moi: Optional[bool] =  None
     phan_tram_phi: Optional[str] =  None
+    key_redis: Optional[str] = None
 
     
 class HoaDonCreate(BaseModel):
@@ -61,6 +62,7 @@ class HoaDonCreate(BaseModel):
     batch_id: str = str(uuid.uuid4())
     ly_do: Optional[str] = None
     caption_goc: Optional[str] = None
+    key_redis: Optional[str] = None
     # ... các field khác
     @validator('type_dao_rut')
     def validate_type_dao_rut(cls, v):

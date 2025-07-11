@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine
+from .redis_client import get_redis
 from .models import Base
 from .controllers import auth_controller, bill_data_controller, user_controller,report_controller
 import asyncio
@@ -29,6 +30,10 @@ async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    redis = await get_redis()
+    pong = await redis.ping()
+    if pong:
+        print("✅ Redis connected")
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to FastAPI Project"} 

@@ -25,6 +25,7 @@ from sqlalchemy import asc ,desc
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
+from ..helpers import helper
 async def get_hoa_don_stats(db, current_user=User):
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -334,7 +335,7 @@ async def get_hoa_don_dien_stats(db, filters=None, current_user=User):
     }
 
 
-async def create_hoa_don_dien(db, hoa_don):
+async def create_hoa_don_dien(db, hoa_don,redis):
     # Kiểm tra trùng mã giao dịch
     result = await db.execute(
         select(HoaDonDien).where(HoaDonDien.ma_giao_dich == hoa_don.ma_giao_dich)
@@ -353,31 +354,50 @@ async def create_hoa_don_dien(db, hoa_don):
             str(hoa_don_data.get("ma_giao_dich", "")).strip()
         ])
         hoa_don_data["batch_id"] = batch_id
-
+    key_join={
+        "ten_khach_hang": hoa_don_data.ten_khach_hang,
+        "ma_khach_hang": hoa_don_data.ma_khach_hang,
+        "dia_chi": hoa_don_data.dia_chi,
+        "so_tien": hoa_don_data.so_tien,
+        "ma_giao_dich": hoa_don_data.ma_giao_dich,
+    }
+    hoa_don_data.key_redis= helper.generate_invoice_dien(key_join)
     obj = HoaDonDien(**hoa_don_data)
     db.add(obj)
     await db.commit()
     await db.refresh(obj)
+    await redis.sadd("momo_invoices", hoa_don.key_redis)
     return obj
 
-async def update_hoa_don_dien(db, hoa_don,id):
+async def update_hoa_don_dien(db, hoa_don,id,redis):
     result = await db.execute(select(HoaDonDien).where(HoaDonDien.id == id))
-    obj = result.scalar_one_or_none()
-    if not obj:
+    hoa_don_data = result.scalar_one_or_none()
+    if not hoa_don_data:
         raise HTTPException(status_code=404, detail="Không tìm thấy hóa đơn")
+    key_join={
+        "ten_khach_hang": hoa_don_data.ten_khach_hang,
+        "ma_khach_hang": hoa_don_data.ma_khach_hang,
+        "dia_chi": hoa_don_data.dia_chi,
+        "so_tien": hoa_don_data.so_tien,
+        "ma_giao_dich": hoa_don_data.ma_giao_dich,
+    }
+    hoa_don_data.key_redis= helper.generate_invoice_dien(key_join)
     for k, v in hoa_don.dict(exclude_unset=True).items():
-        setattr(obj, k, v)
+        setattr(hoa_don_data, k, v)
     await db.commit()
-    await db.refresh(obj)
-    return obj
+    await db.refresh(hoa_don_data)
+    await redis.sadd("momo_invoices", hoa_don.key_redis)
+    return hoa_don_data
 
-async def delete_hoa_don_dien(db, id):
+async def delete_hoa_don_dien(db, id,redis):
     result = await db.execute(select(HoaDonDien).where(HoaDonDien.id == id))
     obj = result.scalar_one_or_none()
     if not obj:
         raise HTTPException(status_code=404, detail="Không tìm thấy hóa đơn")
     await db.delete(obj)
     await db.commit()
+    if obj.key_redis:
+        await redis.srem("momo_invoices", obj.key_redis)
     return
 
 
@@ -477,7 +497,7 @@ async def get_doi_ung_stats(db, filters=None, current_user=User):
     }
 
 
-async def create_hoa_don(db, hoa_don, current_user=User):
+async def create_hoa_don(db, hoa_don, current_user,redis):
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -565,6 +585,15 @@ async def create_hoa_don(db, hoa_don, current_user=User):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"message": "Validation failed", "errors": validation_errors}
         )
+    key_create ={
+        'sdt': hoa_don.so_dien_thoai,
+        'so_hoa_don': hoa_don.so_hoa_don,
+        'gio_giao_dich': hoa_don.gio_giao_dich,
+        'so_lo': hoa_don.so_lo,
+        'tong_so_tien': hoa_don.tong_so_tien
+
+    }
+    hoa_don.key_redis =helper.generate_invoice_key_simple(key_create,hoa_don.ngan_hang)
     
     # Tạo hóa đơn mới
     try:
@@ -572,6 +601,7 @@ async def create_hoa_don(db, hoa_don, current_user=User):
         db.add(db_hoa_don)
         await db.commit()
         await db.refresh(db_hoa_don)
+        await redis.sadd("processed_invoices", hoa_don.key_redis)
         return db_hoa_don
     except IntegrityError as e:
         await db.rollback()
@@ -590,7 +620,8 @@ async def update_hoa_don(
     hoa_don_id, 
     hoa_don,
     db,
-    current_user
+    current_user,
+    redis
 ):
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -604,7 +635,14 @@ async def update_hoa_don(
     
     if not db_hoa_don:
         raise HTTPException(status_code=404, detail="Hóa đơn không tồn tại")
-    
+    key_create ={
+        'sdt': hoa_don.so_dien_thoai,
+        'so_hoa_don': hoa_don.so_hoa_don,
+        'gio_giao_dich': hoa_don.gio_giao_dich,
+        'so_lo': hoa_don.so_lo,
+        'tong_so_tien': hoa_don.tong_so_tien
+
+    }
     # Cập nhật fields
     update_data = hoa_don.dict(exclude_unset=True)
     for field, value in update_data.items():
@@ -613,12 +651,15 @@ async def update_hoa_don(
     await db.commit()
     await db.refresh(db_hoa_don)
     
+    hoa_don.key_redis =helper.generate_invoice_key_simple(key_create,hoa_don.ngan_hang)
+    await redis.sadd("processed_invoices", hoa_don.key_redis)
     return db_hoa_don
 
 async def delete_hoa_don(
     hoa_don_id: int, 
     db,
-    current_user
+    current_user,
+    redis,
 ):
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -636,7 +677,9 @@ async def delete_hoa_don(
     # Xóa hóa đơn
     await db.delete(db_hoa_don)
     await db.commit()
-    
+    #Xóa key redis
+    if db_hoa_don.key_redis:
+        await redis.srem("processed_invoices", db_hoa_don.key_redis)
     return {"ok": True}
 
 async def export_hoa_don_excel(
