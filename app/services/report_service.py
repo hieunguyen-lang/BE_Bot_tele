@@ -167,7 +167,7 @@ async def get_hoa_don_den_han_ket_toan(from_dt, to_dt, db, current_user):
             HoaDon.so_dien_thoai,
             HoaDon.tong_so_tien,
             HoaDon.tien_phi,
-            HoaDon.thoi_gian,
+            HoaDon.lich_canh_bao_datetime,
             HoaDon.so_hoa_don,
             HoaDon.tinh_trang,
             row_number_expr
@@ -192,7 +192,7 @@ async def get_hoa_don_den_han_ket_toan(from_dt, to_dt, db, current_user):
         HoaDonCalendarEvent(
             id=row.id,
             title=f"{row.ten_khach or ''} - {row.so_dien_thoai or ''}",
-            start=row.thoi_gian + relativedelta(months=1),
+            start=row.lich_canh_bao_datetime + relativedelta(months=1),
             ten_khach=row.ten_khach,
             nguoi_gui=row.nguoi_gui,
             so_dien_thoai=row.so_dien_thoai,
