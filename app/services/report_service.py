@@ -150,8 +150,8 @@ async def get_hoa_don_den_han_ket_toan(from_dt, to_dt, db, current_user):
     
     # Subquery: lấy tất cả hóa đơn + rn
     conditions = [
-        HoaDon.thoi_gian >= from_dt,
-        HoaDon.thoi_gian < to_dt_safe,
+        HoaDon.lich_canh_bao_datetime >= from_dt,
+        HoaDon.lich_canh_bao_datetime < to_dt_safe,
     ]
 
     if current_user.role == UserRole.USER:
