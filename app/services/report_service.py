@@ -181,7 +181,7 @@ async def get_hoa_don_den_han_ket_toan(from_dt, to_dt, db, current_user):
     stmt = (
         select(HD)
         .where(HD.c.rn == 1)
-        .order_by(HD.c.thoi_gian)
+        .order_by(HD.c.lich_canh_bao_datetime)
     )
 
     result = await db.execute(stmt)
@@ -197,7 +197,7 @@ async def get_hoa_don_den_han_ket_toan(from_dt, to_dt, db, current_user):
             nguoi_gui=row.nguoi_gui,
             so_dien_thoai=row.so_dien_thoai,
             batch_id=row.batch_id,
-            thoi_gian= row.thoi_gian
+            thoi_gian= row.lich_canh_bao_datetime
         )
         for row in hoa_dons
     ]
