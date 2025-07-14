@@ -66,7 +66,8 @@ async def get_hoa_don_stats(db, current_user=User):
 
 async def get_hoa_don_stats_hoa_don(so_hoa_don,so_lo,tid,mid,nguoi_gui,ten_khach,so_dien_thoai,ngay_giao_dich,db, current_user):
     
-
+    from_ = datetime.strptime(ngay_giao_dich, "%Y-%m-%d") if ngay_giao_dich else None
+    to_plus_1 = from_ + timedelta(days=1) if from_ else None
     # Tạo base query
     query = select(
         hoa_don_models.HoaDon.batch_id,
@@ -91,7 +92,8 @@ async def get_hoa_don_stats_hoa_don(so_hoa_don,so_lo,tid,mid,nguoi_gui,ten_khach
     if so_dien_thoai:
         query = query.where(hoa_don_models.HoaDon.so_dien_thoai.contains(so_dien_thoai))
     if ngay_giao_dich:
-        query = query.where(hoa_don_models.HoaDon.ngay_giao_dich == ngay_giao_dich)
+        query = query.where(hoa_don_models.HoaDon.created_at >= from_,
+                            hoa_don_models.HoaDon.created_at <=  to_plus_1)
 
     result = await db.execute(query)
     records = result.fetchall()

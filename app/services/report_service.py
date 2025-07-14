@@ -116,13 +116,28 @@ async def commission_by_sender(from_date, to_date, db, current_user):
             func.sum(HoaDon.tong_so_tien).label("total_amount"),
             func.count(HoaDon.id).label("total_transactions"),
         )
-        .where(HoaDon.ngay_giao_dich >= from_date)
-        .where(HoaDon.ngay_giao_dich <= to_date)
+        .where(HoaDon.created_at >= from_date)
+        .where(HoaDon.created_at <= to_date)
         .group_by(HoaDon.nguoi_gui)
     )
 
     result = await db.execute(stmt)
     rows = result.all()
+    # Query tổng hợp theo nguoi_gui momo
+    stmt_momo = (
+        select(
+            HoaDonDien.nguoi_gui,
+            func.sum(HoaDonDien.phi_cong_ty_thu).label("total_fee"),
+            func.sum(HoaDonDien.so_tien).label("total_amount"),
+            func.count(HoaDonDien.id).label("total_transactions"),
+        )
+        .where(HoaDonDien.created_at >= from_date)
+        .where(HoaDonDien.created_at <= to_date)
+        .group_by(HoaDonDien.nguoi_gui)
+    )
+
+    result_momo = await db.execute(stmt_momo)
+    rows_momo = result_momo.all()
 
     # Xử lý kết quả
     response = []
@@ -130,10 +145,14 @@ async def commission_by_sender(from_date, to_date, db, current_user):
         response.append({
             "nguoi_gui": row.nguoi_gui,
             "total_transactions": row.total_transactions or 0,
+            "total_transactions_momo": rows_momo.total_transactions or 0,
             "total_amount": row.total_amount or 0,
+            "total_amount_momo": rows_momo.total_amount or 0,
             "total_fee": row.total_fee or 0,
+            "total_fee_momo": rows_momo.total_fee or 0,
             "total_commission": (row.total_amount or 0) * 0.0002,
-            "hoa_hong_cuoi_cung": (row.total_amount or 0) * 0.0002
+            "total_commission_momo": (rows_momo.total_amount or 0) * 0.0002,
+            "hoa_hong_cuoi_cung": (row.total_amount or 0) * 0.0002 +(rows_momo.total_amount or 0) * 0.0002
         })
 
 

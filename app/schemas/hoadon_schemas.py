@@ -36,6 +36,10 @@ class HoaDonBase(BaseSchema):
     khach_moi: Optional[bool] =  None
     phan_tram_phi: Optional[str] =  None
     key_redis: Optional[str] = None
+    ma_chuyen_khoan: Optional[str] = None
+    lich_canh_bao_datetime: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     
 class HoaDonCreate(BaseModel):

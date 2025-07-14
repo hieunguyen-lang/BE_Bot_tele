@@ -28,6 +28,9 @@ class HoaDonDienBase(BaseSchema):
     ma_chuyen_khoan: Optional[str]
     so_tk: Optional[str]
     is_send_or_recieve: Optional[str]
+    created_at: datetime = None
+    updated_at: Optional[datetime] = None
+
     
 
 class HoaDonDienOut(HoaDonDienBase):
