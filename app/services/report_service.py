@@ -24,7 +24,7 @@ from openpyxl.utils import get_column_letter
 from sqlalchemy import select, func, cast, Date,Integer,distinct,case
 from sqlalchemy.orm import aliased
 from dateutil.relativedelta import relativedelta
-
+from decimal import Decimal
 async def report_summary(type, from_, to, db, current_user=User):
     # if current_user.role != UserRole.ADMIN:
     #     raise HTTPException(status_code=403, detail="No permission")
@@ -85,7 +85,7 @@ async def report_summary(type, from_, to, db, current_user=User):
     ]
 
 async def commission_by_sender(from_date, to_date, db, current_user):
-    # Query tổng hợp theo nguoi_gui
+    # Query tổng hợp theo nguoi_gui từ bảng HoaDon
     stmt = (
         select(
             HoaDon.nguoi_gui,
@@ -99,8 +99,9 @@ async def commission_by_sender(from_date, to_date, db, current_user):
     )
 
     result = await db.execute(stmt)
-    rows = result.all()
-    # Query tổng hợp theo nguoi_gui momo
+    rows = result.fetchall()
+
+    # Query tổng hợp từ bảng HoaDonDien
     stmt_momo = (
         select(
             HoaDonDien.nguoi_gui,
@@ -114,27 +115,40 @@ async def commission_by_sender(from_date, to_date, db, current_user):
     )
 
     result_momo = await db.execute(stmt_momo)
-    rows_momo = result_momo.all()
+    rows_momo = result_momo.fetchall()
 
-    # Xử lý kết quả
+    # Chuyển momo thành dict theo người gửi
+    momo_by_sender = {r.nguoi_gui: r for r in rows_momo}
+
     response = []
     for row in rows:
+        momo = momo_by_sender.get(row.nguoi_gui)
+
+        total_amount = float(row.total_amount or 0)
+        total_transactions = int(row.total_transactions or 0)
+        total_fee = float(row.total_fee or 0)
+
+        total_amount_momo = float(momo.total_amount or 0) if momo else 0
+        total_transactions_momo = int(momo.total_transactions or 0) if momo else 0
+        total_fee_momo = float(momo.total_fee or 0) if momo else 0
+
+        commission = total_amount * 0.0002
+        commission_momo = total_amount_momo * 0.0002
+
         response.append({
             "nguoi_gui": row.nguoi_gui,
-            "total_transactions": row.total_transactions or 0,
-            "total_transactions_momo": rows_momo.total_transactions or 0,
-            "total_amount": row.total_amount or 0,
-            "total_amount_momo": rows_momo.total_amount or 0,
-            "total_fee": row.total_fee or 0,
-            "total_fee_momo": rows_momo.total_fee or 0,
-            "total_commission": (row.total_amount or 0) * 0.0002,
-            "total_commission_momo": (rows_momo.total_amount or 0) * 0.0002,
-            "hoa_hong_cuoi_cung": (row.total_amount or 0) * 0.0002 +(rows_momo.total_amount or 0) * 0.0002
+            "total_transactions": total_transactions,
+            "total_transactions_momo": total_transactions_momo,
+            "total_amount": int(total_amount),
+            "total_amount_momo": int(total_amount_momo),
+            "total_fee": int(total_fee),
+            "total_fee_momo": int(total_fee_momo),
+            "total_commission": int(commission),
+            "total_commission_momo": int(commission_momo),
+            "hoa_hong_cuoi_cung": int(commission + commission_momo)
         })
 
-
     return response
-
 async def get_hoa_don_den_han_ket_toan(from_dt, to_dt, db, current_user):
     to_dt_safe = to_dt + timedelta(days=1)
 

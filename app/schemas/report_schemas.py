@@ -11,6 +11,10 @@ class CommissionBySenderOut(BaseModel):
     total_transactions: int
     total_amount: float
     total_fee: float
+    total_commission_momo: float
+    total_transactions_momo: int
+    total_amount_momo: float
+    total_fee_momo: float
     hoa_hong_cuoi_cung: float
 
 # Mô hình dữ liệu trả về cho calendar
