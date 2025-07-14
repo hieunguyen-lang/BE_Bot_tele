@@ -21,7 +21,7 @@ from sqlalchemy import asc ,desc
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
-from sqlalchemy import select, func, cast, Date,Integer
+from sqlalchemy import select, func, cast, Date,Integer,distinct
 from sqlalchemy.orm import aliased
 from dateutil.relativedelta import relativedelta
 
@@ -47,64 +47,33 @@ async def report_summary(type, from_, to, db, current_user=User):
     # Truy vấn tất cả hóa đơn trong khoảng
     stmt = (
         select(
-            hoa_don_models.HoaDon.batch_id,
-            hoa_don_models.HoaDon.tong_so_tien,
-            hoa_don_models.HoaDon.tien_phi,
-            hoa_don_models.HoaDon.khach_moi,
-            group_expr.label("period")
+            group_expr.label("period"),
+            func.count(distinct(hoa_don_models.HoaDon.batch_id)).label("total_batches"),
+            func.sum(hoa_don_models.HoaDon.tong_so_tien).label("total_amount"),
+            func.sum(hoa_don_models.HoaDon.phi_per_bill).label("total_fee"),
+            func.sum(hoa_don_models.HoaDon.khach_moi).label("total_new_customers")
         )
         .where(
             hoa_don_models.HoaDon.created_at >= from_,
-            hoa_don_models.HoaDon.created_at <= to_plus_1
+            hoa_don_models.HoaDon.created_at < to_plus_1
         )
+        .group_by("period")
         .order_by("period")
     )
 
+
     result = await db.execute(stmt)
-    records = result.fetchall()
+    rows = result.fetchall()
 
-    # Group dữ liệu theo period
-    summary = {}
-    for r in records:
-        period = str(r.period)
-        batch_id = r.batch_id
-        tong_so_tien = r.tong_so_tien
-        tien_phi = r.tien_phi
-        khach_moi = r.khach_moi
-        if period not in summary:
-            summary[period] = {
-                "total_amount": 0,
-                "total_fee": 0,
-                "total_batches": set(),
-                "seen_batches": set(),
-                "new_customers": 0
-            }
-
-        # tổng tiền
-        if tong_so_tien and str(tong_so_tien).isdigit():
-            summary[period]["total_amount"] += int(tong_so_tien)
-
-        # đếm batch
-        if batch_id:
-            summary[period]["total_batches"].add(batch_id)
-
-            # tính phí 1 lần/batch
-            if batch_id not in summary[period]["seen_batches"]:
-                summary[period]["seen_batches"].add(batch_id)
-                if tien_phi and str(tien_phi).isdigit():
-                    summary[period]["total_fee"] += int(tien_phi)
-        if khach_moi and str(khach_moi).lower() in ['true', '1', 'yes']:
-            summary[period]["new_customers"] += 1
-    # Format output
     return [
         {
-            "period": period,
-            "total_amount": data["total_amount"],
-            "total_fee": data["total_fee"],
-            "total_batches": len(data["total_batches"]),
-            "total_new_customers": data["new_customers"]
+            "period": row.period,
+            "total_batches": row.total_batches,
+            "total_amount": int(row.total_amount or 0),
+            "total_fee": int(row.total_fee or 0),
+            "total_new_customers": int(row.total_new_customers or 0)
         }
-        for period, data in sorted(summary.items())
+        for row in rows
     ]
 
 async def commission_by_sender(from_date, to_date, db, current_user):
