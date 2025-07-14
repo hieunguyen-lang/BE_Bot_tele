@@ -40,6 +40,7 @@ class HoaDonBase(BaseSchema):
     lich_canh_bao_datetime: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    phi_per_bill: Optional[str] = None
 
     
 class HoaDonCreate(BaseModel):

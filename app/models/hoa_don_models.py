@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, String, Enum, Text,Integer,DateTime
+from sqlalchemy import Boolean, Column, String, Enum, Text,Integer,DateTime,BigInteger
 import enum
 from .base import BaseModel
 from sqlalchemy.sql import func
@@ -39,4 +39,5 @@ class HoaDon(BaseModel):
     key_redis = Column(String, nullable = True)
     ma_chuyen_khoan = Column(String, nullable = True)
     lich_canh_bao_datetime = Column(DateTime, nullable=True)
+    phi_per_bill= Column(BigInteger, nullable=True)
 

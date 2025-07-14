@@ -32,36 +32,23 @@ async def get_hoa_don_stats(db, current_user=User):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to perform this action."
         )
-    
-    # Chỉ select các trường cần thiết cho thống kê
+
+    # ✅ Gộp: count(*) + count(distinct batch_id) + sum tong_so_tien + sum tien_phi
     stmt = select(
-        hoa_don_models.HoaDon.batch_id,
-        hoa_don_models.HoaDon.tong_so_tien,
-        hoa_don_models.HoaDon.tien_phi
+        func.count().label("total_records"),
+        func.count(func.distinct(hoa_don_models.HoaDon.batch_id)).label("total_batches"),
+        func.sum(hoa_don_models.HoaDon.tong_so_tien).label("total_amount"),
+        func.sum(hoa_don_models.HoaDon.phi_per_bill).label("total_fee")
     )
-    
+
     result = await db.execute(stmt)
-    records = result.fetchall()
-    
-    # Tính toán thống kê
-    total_records = len(records)
-    total_batches = len(set(r[0] for r in records if r[0]))  # batch_id
-    total_amount = sum(int(r[1]) for r in records if r[1] and r[1].isdigit())  # tong_so_tien
-    # ✅ Fix: chỉ tính tien_phi của mỗi batch 1 lần (batch đầu tiên)
-    seen_batches = set()
-    total_fee = 0
-    for r in records:
-        batch_id = r[0]
-        tien_phi = r[2]
-        if batch_id and batch_id not in seen_batches:
-            seen_batches.add(batch_id)
-            if tien_phi and tien_phi.isdigit():
-                total_fee += int(tien_phi)
+    row = result.fetchone()
+
     return {
-        "totalRecords": total_records,
-        "totalBatches": total_batches,
-        "totalAmount": total_amount,
-        "totalFee": total_fee
+        "totalRecords": row.total_records,
+        "totalBatches": row.total_batches,
+        "totalAmount": int(row.total_amount or 0),
+        "totalFee": int(row.total_fee or 0)
     }
 
 async def get_hoa_don_stats_hoa_don(so_hoa_don,so_lo,tid,mid,nguoi_gui,ten_khach,so_dien_thoai,ngay_giao_dich,db, current_user):
@@ -70,10 +57,12 @@ async def get_hoa_don_stats_hoa_don(so_hoa_don,so_lo,tid,mid,nguoi_gui,ten_khach
     to_plus_1 = from_ + timedelta(days=1) if from_ else None
     # Tạo base query
     query = select(
-        hoa_don_models.HoaDon.batch_id,
-        hoa_don_models.HoaDon.tong_so_tien,
-        hoa_don_models.HoaDon.tien_phi
+        func.count().label("total_records"),
+        func.count(func.distinct(hoa_don_models.HoaDon.batch_id)).label("total_batches"),
+        func.sum(hoa_don_models.HoaDon.tong_so_tien).label("total_amount"),
+        func.sum(hoa_don_models.HoaDon.phi_per_bill).label("total_fee")
     )
+
     if current_user.role != UserRole.ADMIN:
         query = query.where(hoa_don_models.HoaDon.nguoi_gui == current_user.username)
     # Áp dụng filter nếu có
@@ -96,26 +85,14 @@ async def get_hoa_don_stats_hoa_don(so_hoa_don,so_lo,tid,mid,nguoi_gui,ten_khach
                             hoa_don_models.HoaDon.created_at <=  to_plus_1)
 
     result = await db.execute(query)
-    records = result.fetchall()
+    row = result.fetchone()
 
-    # Tính toán thống kê như cũ
-    total_records = len(records)
-    total_batches = len(set(r[0] for r in records if r[0]))  # batch_id
-    total_amount = sum(int(r[1]) for r in records if r[1] and str(r[1]).isdigit())  # tong_so_tien
-    seen_batches = set()
-    total_fee = 0
-    for r in records:
-        batch_id = r[0]
-        tien_phi = r[2]
-        if batch_id and batch_id not in seen_batches:
-            seen_batches.add(batch_id)
-            if tien_phi and str(tien_phi).isdigit():
-                total_fee += int(tien_phi)
+    
     return {
-        "totalRecords": total_records,
-        "totalBatches": total_batches,
-        "totalAmount": total_amount,
-        "totalFee": total_fee
+        "totalRecords": row.total_records,
+        "totalBatches": row.total_batches,
+        "totalAmount": int(row.total_amount or 0),
+        "totalFee": int(row.total_fee or 0)
     }    
 
 
