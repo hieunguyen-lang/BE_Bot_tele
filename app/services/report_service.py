@@ -21,7 +21,7 @@ from sqlalchemy import asc ,desc
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
-from sqlalchemy import select, func, cast, Date,Integer,distinct
+from sqlalchemy import select, func, cast, Date,Integer,distinct,case
 from sqlalchemy.orm import aliased
 from dateutil.relativedelta import relativedelta
 
@@ -49,16 +49,24 @@ async def report_summary(type, from_, to, db, current_user=User):
         select(
             group_expr.label("period"),
             func.count(distinct(hoa_don_models.HoaDon.batch_id)).label("total_batches"),
+            func.count().label("total_records"),  # tổng số hóa đơn trong period
             func.sum(hoa_don_models.HoaDon.tong_so_tien).label("total_amount"),
             func.sum(hoa_don_models.HoaDon.phi_per_bill).label("total_fee"),
-            func.sum(hoa_don_models.HoaDon.khach_moi).label("total_new_customers")
+            #func.sum(hoa_don_models.HoaDon.khach_moi).label("total_new_customers"),  # khach_moi = 1
+            func.sum(
+                case(
+                    (hoa_don_models.HoaDon.khach_moi == 1, 1),
+                    else_=0
+                )
+            ).label("total_new_customers")
+
         )
         .where(
             hoa_don_models.HoaDon.created_at >= from_,
             hoa_don_models.HoaDon.created_at < to_plus_1
         )
-        .group_by("period")
-        .order_by("period")
+        .group_by(group_expr)      # ✅ CHÍNH XÁC: group theo biểu thức thực
+        .order_by(group_expr)
     )
 
 
