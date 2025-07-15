@@ -85,57 +85,60 @@ async def report_summary(type, from_, to, db, current_user=User):
     ]
 
 async def commission_by_sender(from_date, to_date, db, current_user):
-    stmt = """
-        SELECT
-        nguoi_gui,
+    to_plus_1 = to_date + timedelta(days=1)
 
-        -- Tổng giao dịch chung
-        SUM(total_amount) AS total_amount,
-        SUM(total_fee) AS total_fee,
-        SUM(total_amount) * 0.0002 AS hoa_hong_cuoi_cung,
-
-        -- Giao dịch từ hóa đơn thường
-        SUM(CASE WHEN source = 'hoadon' THEN total_amount ELSE 0 END) AS total_amount_hoadon,
-        SUM(CASE WHEN source = 'hoadon' THEN total_fee ELSE 0 END) AS total_fee_hoadon,
-        SUM(CASE WHEN source = 'hoadon' THEN total_transactions ELSE 0 END) AS total_transactions_hoadon,
-
-        -- Giao dịch từ hóa đơn điện
-        SUM(CASE WHEN source = 'hoadondien' THEN total_amount ELSE 0 END) AS total_amount_momo,
-        SUM(CASE WHEN source = 'hoadondien' THEN total_fee ELSE 0 END) AS total_fee_momo,
-        SUM(CASE WHEN source = 'hoadondien' THEN total_transactions ELSE 0 END) AS total_transactions_momo
-
-    FROM (
-        -- Dữ liệu từ bảng hóa đơn thường
+    # ✅ CHẮC CHẮN PHẢI BAO TEXT()
+    stmt = text("""
         SELECT
             nguoi_gui,
-            SUM(tong_so_tien) AS total_amount,
-            SUM(phi_per_bill) AS total_fee,
-            COUNT(*) AS total_transactions,
-            'hoadon' AS source
-        FROM thong_tin_hoa_don
-        WHERE created_at BETWEEN :from_date AND :to_date
-        GROUP BY nguoi_gui
+            SUM(total_amount) AS total_amount,
+            SUM(total_fee) AS total_fee,
+            SUM(total_amount) * 0.0002 AS hoa_hong_cuoi_cung,
+            SUM(CASE WHEN source = 'hoadon' THEN total_amount ELSE 0 END) AS total_amount_hoadon,
+            SUM(CASE WHEN source = 'hoadon' THEN total_fee ELSE 0 END) AS total_fee_hoadon,
+            SUM(CASE WHEN source = 'hoadon' THEN total_transactions ELSE 0 END) AS total_transactions_hoadon,
+            SUM(CASE WHEN source = 'hoadondien' THEN total_amount ELSE 0 END) AS total_amount_momo,
+            SUM(CASE WHEN source = 'hoadondien' THEN total_fee ELSE 0 END) AS total_fee_momo,
+            SUM(CASE WHEN source = 'hoadondien' THEN total_transactions ELSE 0 END) AS total_transactions_momo
+        FROM (
+            SELECT
+                nguoi_gui,
+                SUM(tong_so_tien) AS total_amount,
+                SUM(phi_per_bill) AS total_fee,
+                COUNT(*) AS total_transactions,
+                'hoadon' AS source
+            FROM thong_tin_hoa_don
+            WHERE created_at >= :from_date AND created_at < :to_date
+            GROUP BY nguoi_gui
 
-        UNION ALL
+            UNION ALL
 
-        -- Dữ liệu từ bảng hóa đơn điện
-        SELECT
-            nguoi_gui,
-            SUM(so_tien) AS total_amount,
-            SUM(phi_cong_ty_thu) AS total_fee,
-            COUNT(*) AS total_transactions,
-            'hoadondien' AS source
-        FROM hoa_don_dien
-        WHERE created_at BETWEEN :from_date AND :to_date
+            SELECT
+                nguoi_gui,
+                SUM(so_tien) AS total_amount,
+                SUM(phi_cong_ty_thu) AS total_fee,
+                COUNT(*) AS total_transactions,
+                'hoadondien' AS source
+            FROM hoa_don_dien
+            WHERE created_at >= :from_date AND created_at < :to_date
+            GROUP BY nguoi_gui
+        ) AS merged_data
         GROUP BY nguoi_gui
-    ) AS merged_data
-    GROUP BY nguoi_gui
-    ORDER BY hoa_hong_cuoi_cung DESC;
-    """
-    rows = await db.execute(text(stmt), {"from_date": from_date, "to_date": to_date})
-    result = rows.fetchall()
+        ORDER BY hoa_hong_cuoi_cung DESC;
+    """)
+
+    # ✅ Debug: in toàn bộ statement và parameters
+    print("Running SQL with params:", {"from_date": from_date, "to_date": to_plus_1})
+    
+    result = await db.execute(stmt, {
+        "from_date": from_date,
+        "to_date": to_plus_1
+    })
+
+    rows = result.fetchall()
+
     response = []
-    for row in result:
+    for row in rows:
         response.append({
             "nguoi_gui": row.nguoi_gui,
             "total_transactions": int(row.total_transactions_hoadon or 0),
@@ -144,13 +147,12 @@ async def commission_by_sender(from_date, to_date, db, current_user):
             "total_amount_momo": int(row.total_amount_momo or 0),
             "total_fee": int(row.total_fee_hoadon or 0),
             "total_fee_momo": int(row.total_fee_momo or 0),
-            "total_commission":int(row.total_amount_hoadon or 0) * 0.0002,
-            "total_commission_momo": int(row.total_amount_momo or 0) * 0.0002,
-            "hoa_hong_cuoi_cung":  (int(row.total_amount_hoadon or 0) + int(row.total_amount_momo or 0))* 0.0002
+            "total_commission": round((row.total_amount_hoadon or 0) * 0.0002),
+            "total_commission_momo": round((row.total_amount_momo or 0) * 0.0002),
+            "hoa_hong_cuoi_cung": round(((row.total_amount_hoadon or 0) + (row.total_amount_momo or 0)) * 0.0002)
         })
 
     return response
-
 
 async def get_hoa_don_den_han_ket_toan(from_dt, to_dt, db, current_user):
     to_dt_safe = to_dt + timedelta(days=1)
