@@ -7,14 +7,14 @@ import re
 import uuid
 class CommissionBySenderOut(BaseModel):
     nguoi_gui: str
-    total_commission: float
     total_transactions: int
-    total_amount: float
-    total_fee: float
-    total_commission_momo: float
     total_transactions_momo: int
+    total_amount: float
     total_amount_momo: float
+    total_fee: float
     total_fee_momo: float
+    total_commission: float
+    total_commission_momo: float
     hoa_hong_cuoi_cung: float
 
 # Mô hình dữ liệu trả về cho calendar
