@@ -372,6 +372,33 @@ async def delete_hoa_don_dien(db, id,redis):
         await redis.srem("momo_invoices", obj.key_redis)
     return
 
+async def delete_hoa_don_dien_batch(db, batch_id,redis):
+    result = await db.execute(select(HoaDonDien).where(HoaDonDien.batch_id == batch_id))
+    db_hoa_don_list = result.scalars().all()
+    if not db_hoa_don_list:
+        raise HTTPException(status_code=404, detail="Batch không có hóa đơn nào!")
+    # Đếm số lượng đã xóa
+    count_deleted = 0
+    # Xóa từng hóa đơn
+    for hoa_don in db_hoa_don_list:
+        await db.delete(hoa_don)
+        count_deleted += 1
+
+        # Nếu có key Redis, xóa key
+        if hoa_don.key_redis:
+            await redis.srem("momo_invoices", hoa_don.key_redis)
+    
+    # Commit transaction
+    await db.commit()
+
+    return {
+        "ok": True,
+        "deleted": count_deleted,
+        "batch_id": batch_id
+    }
+    
+
+
 
 
 
@@ -701,6 +728,7 @@ async def export_hoa_don_excel(
     data = await get_hoa_don_grouped(page, page_size, db, filters,current_user)
     all_rows = []
     for group in data["data"]:
+        #batch_id = group["batch_id"]
         records = group["records"]
         # 👉 Merge KẾT TOÁN từ tổng các tong_so_tien
         tong_cong = sum(int(r.tong_so_tien or 0) for r in records)

@@ -109,7 +109,7 @@ async def update_hoa_don_dien(
 ):  
     return await bill_data.update_hoa_don_dien(db, hoa_don, id,redis)
     
-@router.delete("/momo/{id}", status_code=204)
+@router.delete("/momo/{id}")
 async def delete_hoa_don_dien(
     id: int,
     db: AsyncSession = Depends(get_db),
@@ -118,6 +118,18 @@ async def delete_hoa_don_dien(
     perm: bool = Depends(require_permission("bill:delete"))
 ):
     return await bill_data.delete_hoa_don_dien(db,id,redis)
+
+@router.delete("/momo/batch/{batch_id}")
+async def delete_hoa_don_dien_batch(
+    batch_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_active_user),
+    redis=Depends(get_redis),
+    perm: bool = Depends(require_permission("bill:delete"))
+):
+    return await bill_data.delete_hoa_don_dien_batch(db,batch_id,redis)
+#http://localhost:8000/hoa-don/momo/batch/6e90e160-3a5d-4228-8e3a-42468fa25c13
+
 
 #Hóa đơn đối ứng
 @router.get("/doi-ung")
@@ -357,3 +369,4 @@ async def export_hoa_don_excel(
         filters=filters,
         current_user=current_user
     )
+router = router
