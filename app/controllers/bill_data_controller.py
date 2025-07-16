@@ -307,6 +307,22 @@ async def delete_hoa_don(
             redis
     )
 
+@router.delete("/batch/{batch_id}")
+async def delete_hoa_don_batch_id(
+    batch_id: str, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:delete")),
+    redis=Depends(get_redis)
+):
+    return await bill_data.delete_hoa_don_batch_id(
+            batch_id, 
+            db,
+            current_user,
+            redis
+    )
+
+
 
 @router.get("/export-excel")
 async def export_hoa_don_excel(

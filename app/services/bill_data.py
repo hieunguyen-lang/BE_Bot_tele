@@ -654,6 +654,47 @@ async def delete_hoa_don(
         await redis.srem("processed_invoices", db_hoa_don.key_redis)
     return {"ok": True}
 
+async def delete_hoa_don_batch_id(
+    batch_id: str, 
+    db,
+    current_user,
+    redis,
+):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action."
+        )
+    
+    # Lấy danh sách hóa đơn theo batch_id
+    stmt = select(HoaDon).where(HoaDon.batch_id == batch_id)
+    result = await db.execute(stmt)
+    db_hoa_don_list = result.scalars().all()
+    
+    if not db_hoa_don_list:
+        raise HTTPException(status_code=404, detail="Batch không có hóa đơn nào!")
+
+    # Đếm số lượng đã xóa
+    count_deleted = 0
+
+    # Xóa từng hóa đơn
+    for hoa_don in db_hoa_don_list:
+        await db.delete(hoa_don)
+        count_deleted += 1
+
+        # Nếu có key Redis, xóa key
+        if hoa_don.key_redis:
+            await redis.srem("processed_invoices", hoa_don.key_redis)
+    
+    # Commit transaction
+    await db.commit()
+
+    return {
+        "ok": True,
+        "deleted": count_deleted,
+        "batch_id": batch_id
+    }
+
 async def export_hoa_don_excel(
    page, page_size, db, filters=None,current_user=User     
 ):
