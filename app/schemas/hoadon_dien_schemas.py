@@ -29,6 +29,7 @@ class HoaDonDienBase(BaseSchema):
     so_tk: Optional[str]
     is_send_or_recieve: Optional[str]
     created_at: datetime = None
+    note: Optional[str] = None
     updated_at: Optional[datetime] = None
 
     
@@ -60,6 +61,7 @@ class HoaDonDienCreate(BaseModel):
     ck_ra: Optional[str]
     ma_chuyen_khoan: Optional[str]
     so_tk: Optional[str]
-    is_send_or_recieve: Optional[str]
+    note: Optional[str] = None
+    is_send_or_recieve: Optional[bool]
 class HoaDonDienUpdate(HoaDonDienCreate):
     pass

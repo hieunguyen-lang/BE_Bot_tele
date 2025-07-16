@@ -40,7 +40,7 @@ def generate_invoice_dien(result: dict) -> str:
     print("[Tạo key redis]")
 
     def safe_get(d, key):
-        return (d.get(key) or '').strip().lower()
+        return (str(d.get(key)) or '').strip().lower()
 
     parts = [
         safe_get(result, "ten_khach_hang"),

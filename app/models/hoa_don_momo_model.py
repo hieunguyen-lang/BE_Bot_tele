@@ -29,4 +29,5 @@ class HoaDonDien(BaseModel):
     ma_chuyen_khoan = Column(String(250), nullable=True)
     so_tk = Column(String(250), nullable=True)
     is_send_or_recieve = Column(Boolean, nullable=False,default=False)
+    note = Column(String(300), nullable=True)
     

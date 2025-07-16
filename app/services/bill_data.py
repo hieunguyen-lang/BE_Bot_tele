@@ -341,24 +341,44 @@ async def create_hoa_don_dien(db, hoa_don,redis):
     await redis.sadd("momo_invoices", hoa_don.key_redis)
     return obj
 
-async def update_hoa_don_dien(db, hoa_don,id,redis):
-    result = await db.execute(select(HoaDonDien).where(HoaDonDien.id == id))
+async def update_hoa_don_dien(db, hoa_don, id, redis):
+    # Lấy hóa đơn từ DB
+    result = await db.execute(
+        select(HoaDonDien).where(HoaDonDien.id == id)
+    )
     hoa_don_data = result.scalar_one_or_none()
     if not hoa_don_data:
         raise HTTPException(status_code=404, detail="Không tìm thấy hóa đơn")
-    key_join={
+
+    # Nếu có key_redis cũ → xóa khỏi Redis
+    if hoa_don_data.key_redis:
+        await redis.srem("momo_invoices", hoa_don_data.key_redis)
+
+    # Cập nhật các trường từ input
+    for k, v in hoa_don.dict(exclude_unset=True).items():
+        setattr(hoa_don_data, k, v)
+
+    # Commit tạm để cập nhật dữ liệu
+    await db.commit()
+    await db.refresh(hoa_don_data)
+
+    # Tạo lại key_redis mới dựa trên dữ liệu đã cập nhật
+    key_join = {
         "ten_khach_hang": hoa_don_data.ten_khach_hang,
         "ma_khach_hang": hoa_don_data.ma_khach_hang,
         "dia_chi": hoa_don_data.dia_chi,
         "so_tien": hoa_don_data.so_tien,
         "ma_giao_dich": hoa_don_data.ma_giao_dich,
     }
-    hoa_don_data.key_redis= helper.generate_invoice_dien(key_join)
-    for k, v in hoa_don.dict(exclude_unset=True).items():
-        setattr(hoa_don_data, k, v)
+    hoa_don_data.key_redis = helper.generate_invoice_dien(key_join)
+
+    # Commit lại key_redis mới
     await db.commit()
     await db.refresh(hoa_don_data)
-    await redis.sadd("momo_invoices", hoa_don.key_redis)
+
+    # Thêm key_redis mới vào Redis
+    await redis.sadd("momo_invoices", hoa_don_data.key_redis)
+
     return hoa_don_data
 
 async def delete_hoa_don_dien(db, id,redis):
