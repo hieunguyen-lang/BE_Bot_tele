@@ -97,7 +97,15 @@ async def create_hoa_don_dien(
     
     return await bill_data.create_hoa_don_dien(db,hoa_don,redis)
     
-
+@router.post("/batch-momo")
+async def batch_update_create_momo(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    perm: bool = Depends(require_permission("bill:update")),
+    redis=Depends(get_redis),
+):
+    return await bill_data.batch_update_create_momo(db,payload,redis,current_user)
 @router.put("/momo/{id}")
 async def update_hoa_don_dien(
     id: int,

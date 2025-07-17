@@ -1,6 +1,7 @@
 import requests
 import re
 import random
+import uuid
 from lxml import html
 from datetime import datetime,timedelta
 from sqlalchemy.orm import Session
@@ -318,28 +319,72 @@ async def create_hoa_don_dien(db, hoa_don,redis):
     hoa_don_data = hoa_don.dict()
     # Nếu không có batch_id hoặc batch_id rỗng thì tự động tạo
     if not hoa_don_data.get("batch_id"):
-        batch_id = "_".join([
-            str(hoa_don_data.get("ten_khach_hang", "")).strip(),
-            str(hoa_don_data.get("ma_khach_hang", "")).strip(),
-            str(hoa_don_data.get("dia_chi", "")).strip(),
-            str(hoa_don_data.get("so_tien", "")).strip(),
-            str(hoa_don_data.get("ma_giao_dich", "")).strip()
-        ])
+        batch_id = str(uuid.uuid4())
         hoa_don_data["batch_id"] = batch_id
     key_join={
-        "ten_khach_hang": hoa_don_data.ten_khach_hang,
-        "ma_khach_hang": hoa_don_data.ma_khach_hang,
-        "dia_chi": hoa_don_data.dia_chi,
-        "so_tien": hoa_don_data.so_tien,
-        "ma_giao_dich": hoa_don_data.ma_giao_dich,
+        "ten_khach_hang": str(hoa_don_data.get("ten_khach_hang", "")).strip(),
+        "ma_khach_hang": str(hoa_don_data.get("ma_khach_hang", "")).strip(),
+        "dia_chi": str(hoa_don_data.get("dia_chi", "")).strip(),
+        "so_tien": str(hoa_don_data.get("so_tien", "")).strip(),
+        "ma_giao_dich": str(hoa_don_data.get("ma_giao_dich", "")).strip(),
     }
-    hoa_don_data.key_redis= helper.generate_invoice_dien(key_join)
+    print(key_join)
+    hoa_don_data["key_redis"]= helper.generate_invoice_dien(key_join)
     obj = HoaDonDien(**hoa_don_data)
     db.add(obj)
     await db.commit()
     await db.refresh(obj)
-    await redis.sadd("momo_invoices", hoa_don.key_redis)
+    await redis.sadd("momo_invoices", hoa_don_data["key_redis"])
     return obj
+async def batch_update_create_momo(db, payload, redis, current_user=User):
+    records = payload.get("records", [])
+    results = []
+    errors = []
+    for idx, record in enumerate(records):
+        try:
+            if "is_send_or_recieve" in record:
+                val = record["is_send_or_recieve"]
+                if isinstance(val, str):
+                    if val.lower() == "true":
+                        record["is_send_or_recieve"] = True
+                    elif val.lower() == "false":
+                        record["is_send_or_recieve"] = False
+                    else:
+                        record["is_send_or_recieve"] = None
+            if "id" in record and record["id"]:
+                # Update
+                stmt = select(HoaDonDien).where(HoaDonDien.id == record["id"])
+                result = await db.execute(stmt)
+                db_hoa_don = result.scalar_one_or_none()
+                if not db_hoa_don:
+                    errors.append({"index": idx, "error": f"Hóa đơn id {record['id']} không tồn tại"})
+                    continue
+                for field, value in record.items():
+                    if field != "id":
+                        setattr(db_hoa_don, field, value)
+                await db.commit()
+                await db.refresh(db_hoa_don)
+                results.append(db_hoa_don)
+            else:
+                # Create mới (check trùng mã giao dịch)
+                result = await db.execute(
+                    select(HoaDonDien).where(HoaDonDien.ma_giao_dich == record["ma_giao_dich"])
+                )
+                if result.scalar():
+                    await db.rollback()
+                    errors.append({"index": idx, "error": f"Mã giao dịch {record['ma_giao_dich']} đã tồn tại"})
+                    continue
+                obj = HoaDonDien(**record)
+                db.add(obj)
+                await db.commit()
+                await db.refresh(obj)
+                results.append(obj)
+        except Exception as e:
+            await db.rollback()
+            errors.append({"index": idx, "error": str(e) if str(e) else "Có lỗi không xác định!"})
+    if errors:
+        raise HTTPException(status_code=400, detail=errors)
+    return results
 
 async def update_hoa_don_dien(db, hoa_don, id, redis):
     # Lấy hóa đơn từ DB
