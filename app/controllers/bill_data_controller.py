@@ -311,6 +311,22 @@ async def update_hoa_don(
             current_user=current_user,
             redis=redis
         )
+@router.post("/batch-update")
+async def batch_update_hoa_don(
+    hoa_don_list: List[dict],
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_active_user),
+    redis = Depends(get_redis),
+    perm: bool = Depends(require_permission("bill:update"))
+):
+    return await bill_data.batch_update_hoa_don(
+        hoa_don_list=hoa_don_list,
+        db=db,
+        current_user=current_user,
+        redis=redis
+    )
+
+
 
 @router.delete("/{hoa_don_id}")
 async def delete_hoa_don(

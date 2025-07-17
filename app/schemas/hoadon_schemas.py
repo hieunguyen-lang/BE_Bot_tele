@@ -6,6 +6,7 @@ from pydantic import BaseModel, validator, Field
 import re
 import uuid
 class HoaDonBase(BaseSchema):
+    id: Optional[str] = None
     thoi_gian: Optional[datetime] = None
     nguoi_gui: Optional[str] = None
     ten_khach: Optional[str] = None
@@ -108,8 +109,40 @@ class HoaDonCreate(BaseModel):
             raise ValueError('Số điện thoại không hợp lệ')
         return v
 
-class HoaDonUpdate(HoaDonBase):
-    pass
+class HoaDonUpdate(BaseSchema):
+    thoi_gian: Optional[datetime] = None
+    nguoi_gui: Optional[str] = None
+    ten_khach: Optional[str] = None
+    so_dien_thoai: Optional[str] = None
+    type_dao_rut: Optional[str] = None
+    ngan_hang: Optional[str] = None
+    ngay_giao_dich: Optional[str] = None
+    gio_giao_dich: Optional[str] = None
+    tong_so_tien: Optional[str] = None
+    so_the: Optional[str] = None
+    tid: Optional[str] = None
+    mid: Optional[str] = None
+    so_lo: Optional[str] = None
+    so_hoa_don: Optional[str] = None
+    ten_may_pos: Optional[str] = None
+    lich_canh_bao: Optional[str] = None
+    tien_phi: Optional[str] = None
+    batch_id: Optional[str] = None
+    caption_goc: Optional[str] = None
+    ket_toan: Optional[str] = None
+    ck_vao: Optional[str] = None
+    ck_ra: Optional[str] = None
+    tinh_trang: Optional[str] = None
+    ly_do: Optional[str] = None
+    dia_chi: Optional[str] = None
+    stk_khach: Optional[str] =  None
+    stk_cty: Optional[str] =  None
+    khach_moi: Optional[bool] =  None
+    phan_tram_phi: Optional[str] =  None
+    key_redis: Optional[str] = None
+    ma_chuyen_khoan: Optional[str] = None
+    lich_canh_bao_datetime: Optional[datetime] = None
+    phi_per_bill: Optional[str] = None
 
 class HoaDonOut(HoaDonBase):
     id: int

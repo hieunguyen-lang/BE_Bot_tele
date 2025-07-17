@@ -560,7 +560,6 @@ async def get_doi_ung_stats(db, filters=None, current_user=User):
         "totalAmount": int(row.total_amount) if row.total_amount else 0
     }
 
-
 async def create_hoa_don(db, hoa_don, current_user,redis):
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -679,6 +678,89 @@ async def create_hoa_don(db, hoa_don, current_user,redis):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Lỗi server khi tạo hóa đơn"
         )
+
+async def batch_update_hoa_don(
+    hoa_don_list,
+    db,
+    current_user,
+    redis
+):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to perform this action."
+        )
+    errors = []
+    updated_hoa_dons = []
+    for idx, hoa_don in enumerate(hoa_don_list):
+        if "id" not in hoa_don and not hoa_don["id"]:
+            # Tạo mới hóa đơn
+            try:
+                # Tạo key_redis mới
+                key_create = {
+                    'sdt': str(hoa_don.get("so_dien_thoai", "")).strip(),
+                    'so_hoa_don': str(hoa_don.get("so_hoa_don", "")).strip(),
+                    'gio_giao_dich': str(hoa_don.get("gio_giao_dich", "")).strip(),
+                    'so_lo': str(hoa_don.get("so_lo", "")).strip(),
+                    'tong_so_tien': str(hoa_don.get("tong_so_tien", "")).strip()
+                }
+                new_key_redis = helper.generate_invoice_key_simple(key_create, str(hoa_don.get("ngan_hang", "")).strip())
+                is_exist = await redis.sismember("processed_invoices", new_key_redis)
+                if is_exist:
+                    errors.append({"index": idx, "error": "key_redis đã tồn tại, không thể tạo hóa đơn với key này."})
+                    continue
+                # Tạo mới
+                new_hoa_don = HoaDon(**hoa_don)
+                new_hoa_don.key_redis = new_key_redis
+                db.add(new_hoa_don)
+                await db.commit()
+                await db.refresh(new_hoa_don)
+                await redis.sadd("processed_invoices", new_key_redis)
+                updated_hoa_dons.append(new_hoa_don)
+            except Exception as e:
+                errors.append({"index": idx, "error": str(e)})
+                print(f"Error creating new invoice at index {idx}: {str(e)}")
+            continue
+
+        # Update hóa đơn cũ (giữ nguyên logic cũ)
+        stmt = select(HoaDon).where(HoaDon.id == str(hoa_don.get("id")).strip())
+        result = await db.execute(stmt)
+        db_hoa_don = result.scalar_one_or_none()
+        if not db_hoa_don:
+            errors.append({"index": idx, "error": "Hóa đơn không tồn tại"})
+            continue
+
+        # Tạo key_redis mới
+        key_create = {
+            'sdt': str(hoa_don.get("so_dien_thoai", "")).strip(),
+            'so_hoa_don': str(hoa_don.get("so_hoa_don", "")).strip(),
+            'gio_giao_dich': str(hoa_don.get("gio_giao_dich", "")).strip(),
+            'so_lo': str(hoa_don.get("so_lo", "")).strip(),
+            'tong_so_tien': str(hoa_don.get("tong_so_tien", "")).strip()
+        }
+        new_key_redis = helper.generate_invoice_key_simple(key_create, str(hoa_don.get("ngan_hang", "")).strip())
+
+        # Nếu key_redis mới khác key_redis cũ thì check trùng
+        if new_key_redis != db_hoa_don.key_redis:
+            is_exist = await redis.sismember("processed_invoices", new_key_redis)
+            if is_exist:
+                errors.append({"index": idx, "error": "key_redis đã tồn tại, không thể cập nhật hóa đơn với key này."})
+                continue
+
+        # Cập nhật fields
+        update_data = hoa_don
+        for field, value in update_data.items():
+            setattr(db_hoa_don, field, value)
+        db_hoa_don.key_redis = new_key_redis
+
+        await db.commit()
+        await db.refresh(db_hoa_don)
+        await redis.sadd("processed_invoices", new_key_redis)
+        updated_hoa_dons.append(db_hoa_don)
+
+    if errors:
+        raise HTTPException(status_code=400, detail=errors)
+    return updated_hoa_dons
 
 async def update_hoa_don(
     hoa_don_id, 
