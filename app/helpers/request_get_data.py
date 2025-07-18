@@ -55,7 +55,7 @@ def get_data_post_hastag_ig_recent(res,keyword):
         #Object Item
         item = CrawlerPostItem(
             post_id=post_id,
-            post_type=0,
+            post_type="instagram",
             post_keyword=keyword,
             post_url=url_post,
             message=message,
@@ -80,7 +80,7 @@ def get_data_post_hastag_ig_recent(res,keyword):
             author_name=full_name,
             author_username=author_username,
             author_image=author_image,
-            data_form_source=0
+            data_form_source=0,
         )
         return item
 
